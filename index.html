@@ -1,0 +1,755 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="비공개 대시보드"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style><title>NEA 고등어 2027 TAC 전망</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: auction-board KPI strip -> one dominant forecast-history chart -> 2x2 working panels -> evidence (history, stock, price, backtest, sources). */
+:root {
+  --bg: #f3f5f6; --surface: #ffffff; --surface-2: #eef1f3; --ink: #0f1a20; --ink-2: #44535b; --muted: #6b7a82; --line: #dce2e5;
+  --forecast: #2a78d6; --forecast-band: rgba(42,120,214,.14); --advice: #eb6834; --actual: #0f1a20; --total: #1baf7a; --catch: #4a3aa7;
+  --good: #1f8a4c; --warn: #b77900; --bad: #c8382f; --bull: #1f8a4c; --bear: #c8382f;
+  --f-display: "Barlow Condensed", "Arial Narrow", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --f-body: "Public Sans", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1316; --surface: #141c21; --surface-2: #1b252b; --ink: #e7edf0; --ink-2: #b5c2c8; --muted: #8696a0; --line: #26333a;
+  --forecast: #3987e5; --forecast-band: rgba(57,135,229,.20); --advice: #d95926; --actual: #e7edf0; --total: #199e70; --catch: #9085e9;
+  --good: #3fb06c; --warn: #d9a21b; --bad: #e66767; --bull: #3fb06c; --bear: #e66767; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1316; --surface: #141c21; --surface-2: #1b252b; --ink: #e7edf0; --ink-2: #b5c2c8; --muted: #8696a0; --line: #26333a;
+  --forecast: #3987e5; --forecast-band: rgba(57,135,229,.20); --advice: #d95926; --actual: #e7edf0; --total: #199e70; --catch: #9085e9;
+  --good: #3fb06c; --warn: #d9a21b; --bad: #e66767; --bull: #3fb06c; --bear: #e66767; color-scheme: dark; }
+body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 48px; display: grid; gap: 18px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h2 { font: 600 13px/1.2 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+.sub { color: var(--muted); font-size: 12.5px; }
+.num { font-family: var(--f-display); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+a { color: var(--forecast); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+
+/* header */
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.top h1 { font: 700 28px/1 var(--f-display); letter-spacing: .02em; text-transform: uppercase; }
+.top .meta { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+
+/* KPI board */
+.board { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 2fr); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.hero { padding: 20px; border-right: 1px solid var(--line); display: grid; gap: 10px; align-content: start; }
+.hero .label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.hero .big { font: 700 clamp(52px, 8vw, 84px)/.9 var(--f-display); font-variant-numeric: tabular-nums; }
+.hero .big small { font-size: .42em; color: var(--muted); font-weight: 600; margin-left: 4px; }
+.delta { font: 600 16px/1.2 var(--f-body); }
+.delta.up { color: var(--bull); } .delta.down { color: var(--bear); } .delta.flat { color: var(--muted); }
+.rangebar { position: relative; height: 34px; margin-top: 6px; }
+.rangebar .track { position: absolute; left: 0; right: 0; top: 14px; height: 6px; background: var(--surface-2); border-radius: 3px; }
+.rangebar .fill { position: absolute; top: 14px; height: 6px; background: var(--forecast-band); border: 1px solid var(--forecast); border-radius: 3px; }
+.rangebar .mk { position: absolute; top: 8px; width: 2px; height: 18px; background: var(--forecast); }
+.rangebar .adv { position: absolute; top: 4px; width: 0; height: 26px; border-left: 2px dashed var(--advice); }
+.rangebar .lab { position: absolute; top: 26px; font: 11px var(--f-mono); color: var(--muted); transform: translateX(-50%); white-space: nowrap; }
+.warnbox { display: flex; gap: 8px; align-items: center; background: color-mix(in srgb, var(--warn) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); color: var(--ink); padding: 6px 10px; border-radius: 8px; font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tile { padding: 16px 18px; border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); display: grid; gap: 4px; align-content: start; }
+.tile:nth-child(3n) { border-right: 0; }
+.tile:nth-last-child(-n+3) { border-bottom: 0; }
+.tile .k { font-size: 11.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.tile .v { font: 700 34px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tile .v small { font-size: .5em; color: var(--muted); }
+.tile .n { font-size: 12px; color: var(--muted); }
+.tag { display: inline-block; font: 600 10.5px/1 var(--f-body); letter-spacing: .04em; padding: 3px 6px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; vertical-align: middle; }
+.t-Official { color: var(--good); } .t-Revised { color: var(--catch); } .t-Derived, .t-Estimated { color: var(--warn); }
+.t-Forecast { color: var(--forecast); } .t-Assumption { color: var(--bad); } .t-Observed { color: var(--ink-2); }
+.src { color: var(--muted); font: 500 10.5px var(--f-mono); }
+
+/* briefing */
+.brief { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; counter-reset: q; margin: 0; padding: 0; list-style: none; }
+.brief li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+.brief li::before { counter-increment: q; content: counter(q); font: 600 12px/20px var(--f-mono); color: var(--muted); }
+.brief b { font-weight: 600; }
+
+/* charts */
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font: 11px var(--f-mono); }
+.chart .grid line { stroke: var(--line); stroke-width: 1; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.12); min-width: 170px; z-index: 5; }
+.tip .tt { font-weight: 600; margin-bottom: 4px; }
+.tip .row { display: flex; justify-content: space-between; gap: 12px; }
+.tip .sw { display: inline-block; width: 10px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 18px; height: 0; border-top: 2px solid; display: inline-block; }
+.legend i.dash { border-top-style: dashed; } .legend i.band { height: 10px; border: 0; border-radius: 2px; }
+
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th { text-align: left; font: 600 11px var(--f-body); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+.bar { height: 6px; background: var(--forecast); border-radius: 3px; }
+.why { display: grid; gap: 8px; }
+.why .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.empty { color: var(--muted); font-size: 13px; padding: 10px; border: 1px dashed var(--line); border-radius: 8px; }
+.story { display: grid; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.story:last-child { border-bottom: 0; }
+.story .meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.s-Bullish { color: var(--bull); } .s-Bearish { color: var(--bear); } .s-Neutral, .s-Uncertain { color: var(--muted); }
+.story details summary { cursor: pointer; font-size: 12px; color: var(--muted); }
+.scen { display: grid; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; align-content: start; }
+.scen.base { border-color: var(--forecast); box-shadow: inset 0 3px 0 var(--forecast); }
+.scen .v { font: 700 36px/1 var(--f-display); font-variant-numeric: tabular-nums; }
+.tl { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0; position: relative; }
+.tl button { all: unset; cursor: pointer; display: grid; gap: 6px; padding: 10px 8px 12px; border-top: 3px solid var(--line); text-align: left; }
+.tl button:focus-visible { outline: 2px solid var(--forecast); outline-offset: 2px; }
+.tl button.done { border-top-color: var(--ink-2); } .tl button.now { border-top-color: var(--forecast); }
+.tl button[aria-pressed="true"] { background: var(--surface-2); }
+.tl .d { font: 500 11.5px var(--f-mono); color: var(--muted); }
+.tl .l { font-weight: 600; font-size: 13px; }
+.tldetail { background: var(--surface-2); border-radius: 8px; padding: 12px 14px; font-size: 13px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { all: unset; cursor: pointer; padding: 4px 10px; font: 500 12px var(--f-mono); color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.seg button:focus-visible { outline: 2px solid var(--forecast); }
+details.method { font-size: 13px; }
+details.method summary { cursor: pointer; font-weight: 600; }
+details.method p, details.method li { color: var(--ink-2); max-width: 80ch; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 13px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+
+@media (max-width: 980px) {
+  .board { grid-template-columns: 1fr; } .hero { border-right: 0; border-bottom: 1px solid var(--line); }
+  .grid2, .grid3 { grid-template-columns: 1fr; }
+  .tl { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 620px) {
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile:nth-child(3n) { border-right: 1px solid var(--line); } .tile:nth-child(2n) { border-right: 0; }
+  .tile:nth-last-child(-n+3) { border-bottom: 1px solid var(--line); } .tile:nth-last-child(-n+2) { border-bottom: 0; }
+  .brief { grid-template-columns: 1fr; }
+  .tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+body.locked .wrap > section:not(#lock):not(.board), body.locked .wrap > .grid2, body.locked .board { display: none; }
+#lock { max-width: 420px; margin: 8vh auto 0; width: 100%; }
+#lock form { display: grid; gap: 10px; }
+#lock input[type=password] { font: 16px var(--f-body); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+#lock input:focus-visible, #lock button:focus-visible { outline: 2px solid var(--forecast); outline-offset: 2px; }
+#lock button { font: 600 15px var(--f-body); padding: 10px 12px; border: 0; border-radius: 8px; background: var(--ink); color: var(--bg); cursor: pointer; }
+#lock .err { color: var(--bad); font-size: 13px; min-height: 1.2em; }
+.linkbtn { all: unset; cursor: pointer; font-size: 12px; color: var(--muted); text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head><body><div class="wrap">
+  <header class="top">
+    <div>
+      <div class="sub">North-East Atlantic mackerel · <span class="mono">mac.27.nea</span></div>
+      <h1>2027 고등어 TAC 전망</h1>
+    </div>
+    <div class="meta"><span class="pill" id="live" aria-live="polite"></span><span class="meta" id="meta"></span></div>
+  </header>
+
+  <section class="panel" id="lock" hidden aria-labelledby="h-lock">
+    <h2 id="h-lock">비공개 대시보드</h2>
+    <p class="sub">이 페이지의 데이터는 암호화되어 있습니다. 비밀번호를 입력하면 이 브라우저 안에서만 풀립니다.</p>
+    <form id="lockform" autocomplete="on">
+      <input type="text" name="username" value="mackerel-dashboard" autocomplete="username" hidden>
+      <label for="pw" class="sub">비밀번호</label>
+      <input type="password" id="pw" name="password" autocomplete="current-password" required>
+      <label class="sub"><input type="checkbox" id="remember" checked> 이 기기에서 기억하기</label>
+      <button type="submit" id="unlockbtn">열기</button>
+      <div class="err" id="lockerr" role="alert"></div>
+    </form>
+  </section>
+
+  <section class="board" aria-label="핵심 지표">
+    <div class="hero" id="hero"><div class="label">2027 TAC 전망</div><div class="sub">최신 전망을 불러오는 중…</div></div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-brief">
+    <div class="head"><h2 id="h-brief">10초 브리핑</h2><span class="sub">질문 ①–⑩ 에 대한 현재 답 · 자동 생성</span></div>
+    <ol class="brief" id="brief"></ol>
+  </section>
+
+  <section class="panel" aria-labelledby="h-fh">
+    <div class="head"><h2 id="h-fh">2027 NEA Mackerel TAC Forecast History</h2><span class="sub" id="fh-note"></span></div>
+    <div class="legend" id="fh-legend"></div>
+    <div class="chart" id="fh"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="h-cty">
+      <div class="head"><h2 id="h-cty">국가별 쿼터 전망 (2027)</h2><span class="sub">기준 = 연안국 TAC base</span></div>
+      <div class="scroll"><table id="cty"></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-why">
+      <div class="head"><h2 id="h-why">왜 바뀌었나</h2><span class="sub" id="why-sub"></span></div>
+      <div id="why"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-ev">
+      <div class="head"><h2 id="h-ev">최신 이벤트</h2><span class="sub">뉴스는 방향만 표시 · 예측치에 반영 안 됨</span></div>
+      <div id="events"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-acc">
+      <div class="head"><h2 id="h-acc">예측 정확도 (백테스트)</h2><span class="sub">당시 알 수 있던 정보만 사용</span></div>
+      <div id="acc"></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-scen">
+    <div class="head"><h2 id="h-scen">시나리오</h2><span class="sub">모든 기준점은 공식 수치 · 위험도는 ICES 어획 시나리오 표(Table 2) 보간</span></div>
+    <div class="grid3" id="scen"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-hist">
+    <div class="head"><h2 id="h-hist">ICES 권고 · TAC · 어획량 (2010–2027)</h2><span class="sub">ICES Advice 2026 Table 6 · 단일 버전</span></div>
+    <div class="legend" id="hist-legend"></div>
+    <div class="chart" id="histc"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-stock">
+    <div class="head"><h2 id="h-stock">자원 상태 (Model A 입력)</h2><span class="sub" id="stock-sub"></span></div>
+    <div class="grid3">
+      <div><div class="sub">산란자원량 SSB (t) · 95% CI</div><div class="chart" id="ssbc"></div></div>
+      <div><div class="sub">어획사망률 F (4–8세)</div><div class="chart" id="fc"></div></div>
+      <div><div class="sub">가입량 R (2세, 천 마리)</div><div class="chart" id="rc"></div></div>
+    </div>
+    <div id="bio"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-px">
+    <div class="head"><h2 id="h-px">노르웨이 냉동 고등어 수출단가 (Model D)</h2>
+      <div class="seg" role="group" aria-label="통화" id="cur"></div></div>
+    <div class="legend" id="px-legend"></div>
+    <div class="chart" id="pxc"></div>
+    <div id="pxm"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-tl">
+    <div class="head"><h2 id="h-tl">2027 Mackerel Quota Timeline</h2><span class="sub">단계를 누르면 근거와 출처</span></div>
+    <div class="tl" id="tl"></div>
+    <div class="tldetail" id="tldetail"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-db">
+    <div class="head"><h2 id="h-db">과거 데이터베이스</h2><span class="sub">상태 태그: Official · Revised · Derived · Forecast · Assumption</span></div>
+    <div class="scroll"><table id="db"></table></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="h-src">
+      <div class="head"><h2 id="h-src">공식 입력값과 출처</h2><span class="sub">sources/official_inputs.csv</span></div>
+      <div class="scroll"><table id="src"></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-m">
+      <div class="head"><h2 id="h-m">모델 계산 방식</h2><span class="sub" id="mv"></span></div>
+      <div id="method"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const D0 = /*__DATA__*/null;  // embedded snapshot (artifact build) or null (live site: fetch data.json)
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d = 0) => v == null || isNaN(v) ? "—" : Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+const t = (v) => v == null ? "—" : fmt(v) + " t";
+const kt = (v) => v == null ? "—" : fmt(v / 1000, 0) + "k";
+const sgn = (v) => (v > 0 ? "+" : v < 0 ? "−" : "±") + fmt(Math.abs(v));
+const pct = (v, d = 1) => v == null ? "—" : fmt(v * 100, d) + "%";
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const tag = (s) => `<span class="tag t-${esc((s || "").split(" ")[0])}">${esc(s)}</span>`;
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const kst = (iso) => { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 16) + " KST"; };
+function render(D) {
+const K = D.kpi, ref = K.ref, tot = K.total;
+
+/* ---------------- header + KPI ---------------- */
+const lc = K.last_check;
+$("meta").innerHTML = `
+  <span class="pill"><span class="dot" style="background:${lc && lc.changed ? "var(--forecast)" : "var(--good)"}"></span>최근 확인 ${kst(lc && lc.timestamp)} · ${lc && lc.changed ? "전망 재계산" : "변경 없음"}</span>
+  <span class="pill">모델 ${esc(D.model_version)}</span>${D0 ? "" : `<button type="button" class="linkbtn" onclick="forget()">잠그기</button>`}`;
+const lo = Math.min(ref.low, D.kpi.advice) * 0.94, hi = Math.max(ref.high, D.kpi.advice) * 1.03;
+const P = (v) => ((v - lo) / (hi - lo) * 100).toFixed(2) + "%";
+const d24 = K.d24;
+const dcls = d24 == null ? "flat" : d24 > 0 ? "up" : d24 < 0 ? "down" : "flat";
+const dtxt = d24 == null ? `기록 시작 ${kst(K.first_forecast)} · 24시간 비교 불가` : d24 === 0 ? "± 0 t / 24h · 변경 없음" : `${d24 > 0 ? "▲" : "▼"} ${sgn(d24)} t / 24h`;
+const lowConf = K.confidence < 50, midConf = !lowConf && K.confidence < 70;
+$("hero").innerHTML = `
+  <div class="label">2027 TAC 전망 · 연안국 기준 TAC (base)</div>
+  <div class="big">${fmt(ref.base)}<small>t</small></div>
+  <div class="delta ${dcls}">${dtxt}</div>
+  <div class="rangebar" aria-label="전망 범위">
+    <div class="track"></div>
+    <div class="fill" style="left:${P(ref.low)};width:calc(${P(ref.high)} - ${P(ref.low)})"></div>
+    <div class="adv" style="left:${P(D.kpi.advice)}" title="ICES 권고"></div>
+    <div class="mk" style="left:${P(ref.base)}"></div>
+    <div class="lab" style="left:${P(ref.low)}">${kt(ref.low)}</div>
+    <div class="lab" style="left:${P(ref.high)}">${kt(ref.high)}</div>
+  </div>
+  <div class="sub">범위 <b class="mono">${fmt(ref.low)} — ${fmt(ref.high)} t</b> · 근거: ${esc(ref.basis)}</div>
+  ${lowConf || midConf ? `<div class="warnbox" role="note"><span aria-hidden="true">⚠</span><span>${lowConf ? "불확실성 높음" : "불확실성 있음"} · TAC 신뢰도 ${K.confidence}/100 · ${esc(K.conf_tac.note)} · 아직 연안국 합의 전</span></div>` : ""}`;
+const m = K.multiplier;
+const tiles = [
+  ["ICES 권고 2027", `${fmt(D.kpi.advice)}<small> t</small>`, `2026 권고 174,357 t 대비 +102% · ${tag("Official")}`],
+  ["정치적 승수", `${fmt(m.ref_base, 2)}<small> ×</small>`, `TAC÷권고. 총쿼터 기준 ${fmt(m.total_base, 2)}× · 과거 중앙값 ${fmt(m.hist.median, 2)}× (${m.hist.years})`],
+  ["노르웨이 쿼터 전망", `${fmt(K.norway.base)}<small> t</small>`, `${fmt(K.norway.low)} — ${fmt(K.norway.high)} t · 순배분 26.40% × TAC`],
+  ["시장 공급 (총 쿼터)", `${fmt(tot.base)}<small> t</small>`, `모든 국가 선언 쿼터 합 · 2026 ${fmt(K.total_prev)} t`],
+  ["신뢰도 (TAC · 공급)", `${K.confidence}<small> · ${K.conf_total.score}</small>`, `확률 아님 · TAC 합의 시 TAC는 100 · 공급은 국가 쿼터 선언에 따라 상승`],
+  ["마지막 업데이트", `<span style="font-size:24px">${kst(D.generated).slice(0, 16)}</span>`, `KST · 확인 주기 1시간 · 정보 없으면 숫자 고정`],
+];
+$("tiles").innerHTML = tiles.map(([k, v, n]) => `<div class="tile"><div class="k">${k}</div><div class="v">${v}</div><div class="n">${n}</div></div>`).join("");
+
+/* ---------------- 10-second briefing ---------------- */
+const nor = D.countries.find((c) => c.country === "Norway");
+const ru = D.countries.find((c) => c.country === "Russia"), eu = D.countries.find((c) => c.country === "EU");
+const S = D.backtest.S_total_structural.metrics, B1 = D.backtest[D.best_stat].metrics;
+const lastRev = D.revisions[D.revisions.length - 1];
+const supplyChg = tot.base / K.total_prev - 1;
+const pf = D.price_model.forecasts[D.target], pf0 = D.price_model.forecasts[D.target - 1];
+const brief = [
+  `<b>2027 TAC ${t(ref.base)}</b> (연안국 기준 TAC). 시장에 풀릴 총 쿼터는 <b>${t(tot.base)}</b>.`,
+  d24 == null ? `24시간 전 기록 없음 (기록 시작 ${kst(K.first_forecast)}).` : d24 === 0 ? `<b>어제와 같음</b>. 새 공식 정보 없음.` : `어제보다 <b>${sgn(d24)} t</b>.`,
+  lastRev ? `최근 변경 원인: ${esc(lastRev.reason)}` : `아직 변경 이력 없음. 현재 값은 ICES 권고(2026-09-30)와 4자 합의 배분율로 계산된 초기값.`,
+  `범위 <b>${t(ref.low)} — ${t(ref.high)}</b> (동결 ~ 장기관리전략 초안의 최대 +25%).`,
+  `ICES 권고 대비 <b>${sgn(ref.base - D.kpi.advice)} t</b> (TAC 기준). 총 쿼터는 권고의 <b>${fmt(m.total_base, 2)}배</b> (2010년 이후 중앙값 ${fmt(m.hist.median, 2)}배).`,
+  `노르웨이 <b>${t(K.norway.base)}</b> (${t(K.norway.low)}–${t(K.norway.high)}) · 2026년 순배분 ${t(nor.q2026.value)} 대비 ${sgn(K.norway.base - nor.q2026.value)} t (2026 최종 81,375 t는 이월 포함). 배분율은 2028년까지 고정(공식).`,
+  `변수: <b>러시아</b>(독자 선언, TAC의 ${pct(ru.share_of_ref)}로 가정)와 <b>EU</b>(4자 합의 밖, ${pct(eu.share_of_ref)} 잔차). 이 둘이 TAC와 총 쿼터의 차이를 만듦.`,
+  `TAC 신뢰도 <b>${K.confidence}/100</b>, 공급 신뢰도 <b>${K.conf_total.score}/100</b>. ${esc(K.conf_tac.note)}. 12월 합의 시 TAC 100, 국가 쿼터 확정 시 공급 ~77 이상.`,
+  `TAC 규칙 백테스트 MAPE ${fmt(D.backtest.S_ref_rule.metrics.MAPE, 1)}% (n=${D.backtest.S_ref_rule.metrics.n}, 5년 중 4년 정확 일치, 2026 급감년만 −42%) · 통계 모델 MAPE ${fmt(B1.MAPE, 1)}% (n=${B1.n}).`,
+  `공급 신호: 2027 총 쿼터 <b>${supplyChg >= 0 ? "+" : ""}${pct(supplyChg, 0)}</b> (2026 대비) → 가격모형(탐색용) 기준 2027/28 시즌 단가 <b>${pf && pf0 ? (pf.nok_per_kg / pf0.nok_per_kg - 1 >= 0 ? "+" : "") + pct(pf.nok_per_kg / pf0.nok_per_kg - 1, 0) : "—"}</b> (2026/27 대비). 2027년산 공급이 늘 가능성이 높아 <b>2027년산 선매수는 서두를 근거 약함</b>, 2026년산 재고 구매는 공급 증가와 무관. 합의 전이라 확정 판단은 12월 합의 확인 후.`,
+];
+$("brief").innerHTML = brief.map((b) => `<li><span>${b}</span></li>`).join("");
+
+/* ---------------- generic SVG line chart ---------------- */
+function chart(el, o) {
+  const W = o.w || 1160, Hh = o.h || 320, m = { l: 64, r: 16, t: 12, b: 28, ...(o.m || {}) };
+  const iw = W - m.l - m.r, ih = Hh - m.t - m.b;
+  const xs = (v) => m.l + (v - o.x0) / (o.x1 - o.x0) * iw;
+  const ys = (v) => m.t + ih - (v - o.y0) / (o.y1 - o.y0) * ih;
+  let s = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="${esc(o.label || "")}"><g class="grid">`;
+  o.yt.forEach((v) => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${ys(v)}" y2="${ys(v)}"/><text x="${m.l - 8}" y="${ys(v) + 4}" text-anchor="end">${o.yf(v)}</text>`; });
+  s += `</g>`;
+  o.xt.forEach((v) => { s += `<text x="${xs(v)}" y="${Hh - 8}" text-anchor="middle">${o.xf(v)}</text>`; });
+  (o.bands || []).forEach((b) => {
+    const pts = b.data.filter((d) => d.lo != null);
+    if (!pts.length) return;
+    const top = pts.map((d) => `${xs(d.x)},${ys(d.hi)}`).join(" "), bot = pts.slice().reverse().map((d) => `${xs(d.x)},${ys(d.lo)}`).join(" ");
+    s += `<polygon points="${top} ${bot}" fill="${b.fill}" stroke="none"/>`;
+  });
+  (o.refs || []).forEach((r) => {
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${ys(r.y)}" y2="${ys(r.y)}" stroke="${r.color}" stroke-width="2" stroke-dasharray="${r.dash || "6 4"}"/>`;
+    s += `<text x="${W - m.r - 4}" y="${ys(r.y) - 6}" text-anchor="end" style="fill:${r.color}">${esc(r.label)}</text>`;
+  });
+  o.series.forEach((se) => {
+    const pts = se.data.filter((d) => d.y != null);
+    if (pts.length > 1) {
+      let dstr = "";
+      pts.forEach((d, i) => {
+        if (i === 0) dstr += `M${xs(d.x)},${ys(d.y)}`;
+        else dstr += se.step ? `H${xs(d.x)}V${ys(d.y)}` : `L${xs(d.x)},${ys(d.y)}`;
+      });
+      s += `<path d="${dstr}" fill="none" stroke="${se.color}" stroke-width="2" ${se.dash ? `stroke-dasharray="${se.dash}"` : ""} stroke-linejoin="round"/>`;
+    }
+    if (se.dots !== false) pts.forEach((d) => { s += `<circle cx="${xs(d.x)}" cy="${ys(d.y)}" r="${se.r || 4}" fill="${d.hollow ? css("--surface") : se.color}" stroke="${d.hollow ? se.color : css("--surface")}" stroke-width="2"/>`; });
+  });
+  (o.whiskers || []).forEach((w) => {
+    s += `<line x1="${xs(w.x)}" x2="${xs(w.x)}" y1="${ys(w.lo)}" y2="${ys(w.hi)}" stroke="${w.color}" stroke-width="2"/>`;
+    [w.lo, w.hi].forEach((v) => { s += `<line x1="${xs(w.x) - 5}" x2="${xs(w.x) + 5}" y1="${ys(v)}" y2="${ys(v)}" stroke="${w.color}" stroke-width="2"/>`; });
+  });
+  (o.notes || []).forEach((n) => { s += `<text x="${xs(n.x)}" y="${ys(n.y) - 10}" text-anchor="${n.anchor || "middle"}" style="fill:${n.color || css("--ink-2")}">${esc(n.text)}</text>`; });
+  s += `<line id="${el.id}-x" y1="${m.t}" y2="${m.t + ih}" stroke="${css("--muted")}" stroke-width="1" visibility="hidden"/>`;
+  s += `<rect x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent" id="${el.id}-hit"/></svg><div class="tip" hidden></div>`;
+  el.innerHTML = s;
+  const svg = el.querySelector("svg"), tip = el.querySelector(".tip"), cross = el.querySelector(`#${el.id}-x`);
+  const xsAll = [...new Set(o.series.flatMap((se) => se.data.filter((d) => d.y != null).map((d) => d.x)))].sort((a, b) => a - b);
+  const move = (ev) => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+    if (!xsAll.length) return;
+    const xv = xsAll.reduce((a, b) => Math.abs(xs(b) - px) < Math.abs(xs(a) - px) ? b : a);
+    cross.setAttribute("x1", xs(xv)); cross.setAttribute("x2", xs(xv)); cross.setAttribute("visibility", "visible");
+    tip.innerHTML = `<div class="tt">${o.tf(xv)}</div>` + o.series.map((se) => {
+      const d = se.data.find((q) => q.x === xv); if (!d || d.y == null) return "";
+      return `<div class="row"><span><span class="sw" style="background:${se.color}"></span>${esc(se.name)}</span><b class="mono">${o.vf(d.y)}</b></div>`;
+    }).join("") + (o.extraTip ? o.extraTip(xv) : "");
+    tip.hidden = false;
+    const left = xs(xv) / W * r.width;
+    tip.style.left = Math.min(Math.max(0, left + 12), r.width - 190) + "px";
+    tip.style.top = "8px";
+  };
+  svg.addEventListener("pointermove", move);
+  svg.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+}
+const niceTicks = (a, b, n = 5) => { const st = Math.pow(10, Math.floor(Math.log10((b - a) / n))); const s = [1, 2, 2.5, 5, 10].map((k) => k * st).find((k) => (b - a) / k <= n) || st * 10; const out = []; for (let v = Math.ceil(a / s) * s; v <= b + 1e-9; v += s) out.push(v); return out; };
+const legend = (id, items) => { $(id).innerHTML = items.map(([n, c, k]) => `<span><i class="${k || ""}" style="${k === "band" ? `background:${c}` : `border-color:${c}`}"></i>${esc(n)}</span>`).join(""); };
+
+/* ---------------- forecast history ---------------- */
+(function () {
+  const F = D.forecasts.map((f) => ({ ...f, x: new Date(f.timestamp).getTime() }));
+  const now = new Date(D.generated).getTime();
+  const start = F.length ? Math.min(F[0].x, now) - 86400e3 : now - 86400e3;
+  const end = new Date("2026-12-31T00:00:00+09:00").getTime();
+  const ext = (k) => { const a = F.map((f) => ({ x: f.x, y: f[k] })); if (F.length) a.push({ x: now, y: F[F.length - 1][k], hollow: true }); return a; };
+  const bandData = (() => { const a = F.map((f) => ({ x: f.x, lo: f.tac_low, hi: f.tac_high })); if (F.length) a.push({ x: now, lo: F[F.length - 1].tac_low, hi: F[F.length - 1].tac_high }); return a; })();
+  const vals = [K.advice, K.ref_prev, ...F.flatMap((f) => [f.tac_low, f.tac_high])];
+  const y0 = Math.floor(Math.min(...vals) * 0.9 / 25000) * 25000, y1 = Math.ceil(Math.max(...vals) * 1.06 / 25000) * 25000;
+  const days = []; for (let d = new Date(start); d.getTime() <= end; d.setDate(d.getDate() + 1)) if ([1, 15].includes(d.getDate())) days.push(d.getTime());
+  chart($("fh"), {
+    label: "2027 TAC 전망 이력", h: 360, x0: start, x1: end, y0, y1, yt: niceTicks(y0, y1, 6), yf: kt,
+    xt: days, xf: (v) => new Date(v).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }).slice(5),
+    tf: (v) => kst(new Date(v).toISOString()), vf: t,
+    bands: [{ data: bandData, fill: css("--forecast-band") }],
+    refs: [{ y: K.advice, color: css("--advice"), label: `ICES 권고 ${fmt(K.advice)} t` },
+           { y: K.ref_prev, color: css("--ink-2"), dash: "2 4", label: `2026 실제 TAC ${fmt(K.ref_prev)} t` }],
+    series: [{ name: "전망 (base)", color: css("--forecast"), step: true, data: ext("tac_base") },
+             { name: "Low", color: css("--forecast"), dots: false, data: ext("tac_low") },
+             { name: "High", color: css("--forecast"), dots: false, data: ext("tac_high") }],
+    notes: [{ x: end, y: y0 + (y1 - y0) * 0.06, text: "합의 예상 12월", anchor: "end" }],
+    extraTip: (xv) => { const f = F.filter((q) => q.x <= xv).pop(); return f ? `<div class="row"><span>신뢰도</span><b class="mono">${f.confidence}/100</b></div><div class="row"><span>모델</span><b class="mono">${f.model_version}</b></div>` : ""; },
+  });
+  legend("fh-legend", [["전망 base (계단 = 새 공식 정보가 있을 때만 변경)", css("--forecast")], ["전망 범위 Low–High", css("--forecast-band"), "band"], ["ICES 권고", css("--advice"), "dash"], ["2026 실제 TAC", css("--ink-2"), "dash"]]);
+  $("fh-note").textContent = `기록 ${F.length}건 · 최종 TAC 발표 시 실제값과 오차 표시`;
+})();
+
+/* ---------------- countries ---------------- */
+(function () {
+  const flags = { Norway: "🇳🇴", UK: "🇬🇧", EU: "🇪🇺", "Faroe Islands": "🇫🇴", Iceland: "🇮🇸", Russia: "🇷🇺", Greenland: "🇬🇱" };
+  const stance = { Norway: "4자 합의 당사국 · LTMS 요청", UK: "4자 합의 당사국 · LTMS 요청", "Faroe Islands": "4자 합의 당사국", Iceland: "4자 합의 당사국 (2026년 첫 포함)", EU: "합의 밖 · 2026 −48% 경로", Russia: "독자 선언 · NEAFC 공해 제한(1,495 t)", Greenland: "독자 선언 · LTMS 요청 참여" };
+  const maxv = Math.max(...D.countries.map((c) => c.expected.high));
+  $("cty").innerHTML = `<thead><tr><th>국가</th><th class="r">2026 쿼터</th><th class="r">과거 점유 '22–24</th><th class="r">2027 전망</th><th class="r">TAC 대비</th><th>입장 · 근거</th></tr></thead><tbody>` +
+    D.countries.map((c) => {
+      const hs = c.hist.length ? pct(c.hist.reduce((a, h) => a + h.share_of_reported, 0) / c.hist.length) : "—";
+      return `<tr><td><b>${flags[c.country] || ""} ${esc(c.country)}</b></td>
+        <td class="r mono">${fmt(c.q2026.value)}<div>${tag(c.q2026.status)}</div></td>
+        <td class="r mono">${hs}</td>
+        <td class="r"><b class="num" style="font-size:20px">${fmt(c.expected.base)}</b><div class="src">${fmt(c.expected.low)}–${fmt(c.expected.high)}</div>
+          <div class="bar" style="width:${(c.expected.base / maxv * 100).toFixed(1)}%;margin-left:auto"></div></td>
+        <td class="r mono">${pct(c.share_of_ref)}</td>
+        <td><div>${esc(stance[c.country] || "")}</div>
+          <div>${c.positions && c.positions.length ? c.positions.map((p) => `<b>공식 입장:</b> ${p.key === "position_tac" ? t(p.value) : (p.value > 0 ? "권고보다 높게" : p.value < 0 ? "권고보다 낮게" : "권고 수준")} <span class="src">${esc(p.published)} · <a href="${esc(p.url)}" target="_blank" rel="noopener">출처</a></span>`).join("<br>") : `<span class="src">2027 공식 입장 미발표</span>`}</div>
+          <div class="src">${esc(c.basis)}</div>${tag(c.status)}</td></tr>`;
+    }).join("") + `</tbody>`;
+})();
+
+/* ---------------- why changed ---------------- */
+(function () {
+  const rv = D.revisions;
+  if (!rv.length) {
+    $("why-sub").textContent = "변경 이력 0건";
+    $("why").innerHTML = `<div class="empty">첫 전망 이후 모델 입력이 바뀌지 않았습니다. 매시간 확인 결과: <b>변경 없음</b>.<br>현재 값의 구성: ICES 권고 ${t(K.advice)} → 규칙 "TAC = 권고"(2023·2024·2025 전례) → 노르웨이 26.40%.</div>` + checksTable();
+    return;
+  }
+  const r = rv[rv.length - 1];
+  $("why-sub").textContent = kst(r.timestamp);
+  const mx = Math.max(...r.attribution.map((a) => Math.abs(a.delta)), 1);
+  $("why").innerHTML = `<div class="num" style="font-size:40px">${sgn(r.change)} t</div><div class="why">` +
+    r.attribution.map((a, i) => `<div class="row"><span>${i + 1}. ${esc(a.label)}</span><b class="mono">${sgn(a.delta)} t</b></div>
+      <div class="bar" style="width:${(Math.abs(a.delta) / mx * 100).toFixed(1)}%;background:${a.delta >= 0 ? "var(--bull)" : "var(--bear)"}"></div>`).join("") +
+    `</div><div class="src">출처: ${esc(r.source || "—")}</div>` + revTable() + checksTable();
+})();
+function revTable() {
+  if (D.revisions.length < 2) return "";
+  return `<div class="scroll"><table><thead><tr><th>시각</th><th class="r">이전</th><th class="r">새 값</th><th class="r">변화</th><th>원인</th></tr></thead><tbody>` +
+    D.revisions.slice().reverse().map((r) => `<tr><td class="mono">${kst(r.timestamp)}</td><td class="r mono">${fmt(r.previous_forecast)}</td><td class="r mono">${fmt(r.new_forecast)}</td><td class="r mono">${sgn(r.change)}</td><td>${esc(r.reason)}</td></tr>`).join("") + `</tbody></table></div>`;
+}
+function checksTable() {
+  const c = D.checks.slice(0, 6);
+  return `<div class="sub" style="margin-top:6px">최근 확인 기록</div><div class="mono" style="display:grid;gap:2px">` + c.map((x) => `<div>${kst(x.timestamp)} · ${esc(x.note)}</div>`).join("") + `</div>`;
+}
+
+/* ---------------- events ---------------- */
+(function () {
+  const S = D.stories.slice(0, 7);
+  if (!S.length) { $("events").innerHTML = `<div class="empty">수집된 이벤트가 없습니다.</div>`; return; }
+  const ko = { Bullish: "TAC 상향 요인", Bearish: "TAC 하향 요인", Neutral: "중립", Uncertain: "불확실" };
+  $("events").innerHTML = S.map((s) => `<div class="story">
+    <div class="meta"><span class="mono">${esc((s.published || "").slice(0, 10))}</span>
+      <b class="s-${esc(s.sentiment)}">${s.sentiment === "Bullish" ? "▲" : s.sentiment === "Bearish" ? "▼" : "●"} ${ko[s.sentiment] || esc(s.sentiment)}</b>
+      <span>영향 ${esc(s.impact)}</span><span>확신 ${fmt((s.confidence || 0) * 100)}%</span>
+      <span>${s.tonnage_impact ? "명시 수치 " + t(s.tonnage_impact) : "Directional impact only"}</span>
+      ${s.country ? `<span>${esc(s.country)}</span>` : ""}</div>
+    <div>${esc(s.summary)}</div>
+    <details><summary>${s.items.length}개 기사 · ${esc(s.items[0].source)}${s.items.length > 1 ? " 외" : ""}</summary>
+      ${s.items.map((i) => `<div class="src"><a href="${esc(i.url)}" target="_blank" rel="noopener">${esc(i.title)}</a></div>`).join("")}</details>
+  </div>`).join("");
+})();
+
+/* ---------------- accuracy ---------------- */
+(function () {
+  const BT = D.backtest;
+  const names = { S_ref_rule: "구조: TAC = 권고 규칙", S_total_structural: "구조: 총 쿼터", B1_partial_adjustment: "통계: 부분조정", B0_median_multiplier: "통계: 승수 중앙값", B2_naive_previous: "기준: 전년 동결", B3_advice_as_tac: "기준: 권고 = TAC" };
+  const order = ["S_ref_rule", "S_total_structural", "B1_partial_adjustment", "B0_median_multiplier", "B2_naive_previous", "B3_advice_as_tac"];
+  const lastF = D.forecasts.length ? D.forecasts[D.forecasts.length - 1] : null;
+  $("acc").innerHTML = `<div class="kv"><dt>실전 오차 (Forecast vs Actual)</dt><dd>2027 최종 TAC 발표 전 · 계산 대기</dd></div>
+  <div class="scroll"><table><thead><tr><th>모델</th><th class="r">n</th><th class="r">MAPE</th><th class="r">MAE</th><th class="r">Bias</th><th class="r">RMSE</th><th class="r">±10% 적중</th></tr></thead><tbody>` +
+    order.map((k) => { const mm = BT[k].metrics; return `<tr${k === D.best_stat ? ' style="font-weight:600"' : ""}><td>${names[k]}</td><td class="r mono">${mm.n}</td><td class="r mono">${fmt(mm.MAPE, 1)}%</td><td class="r mono">${kt(mm.MAE)}</td><td class="r mono">${sgn(Math.round(mm.Bias / 1000))}k</td><td class="r mono">${kt(mm.RMSE)}</td><td class="r mono">${pct(mm.within10, 0)}</td></tr>`; }).join("") +
+    `</tbody></table></div>
+    <details class="method"><summary>연도별 백테스트 결과</summary><div class="scroll"><table><thead><tr><th>연도</th><th class="r">실제 총쿼터</th><th class="r">부분조정</th><th class="r">오차</th><th class="r">구조(총)</th><th class="r">오차</th></tr></thead><tbody>` +
+    BT.B1_partial_adjustment.rows.map((r) => { const s = BT.S_total_structural.rows.find((q) => q.year === r.year); return `<tr><td class="mono">${r.year}</td><td class="r mono">${fmt(r.actual)}</td><td class="r mono">${fmt(r.pred)}</td><td class="r mono">${pct(r.pct)}</td><td class="r mono">${s ? fmt(s.pred) : "—"}</td><td class="r mono">${s ? pct(s.pct) : "—"}</td></tr>`; }).join("") +
+    `</tbody></table></div><p>구조 모델은 연안국 기준 TAC가 공식 기록(EC·gov.scot)으로 확인된 2021년 이후만 검증 가능 (n=5, 2020년 기록은 스캔 판독 불가로 제외). 2026년(권고 −70%)에는 "TAC=권고" 규칙이 −42% 틀렸습니다. 이번 2027년은 권고가 오르는 해라 그 규칙이 깨진 조건(급감)과 다릅니다.</p></details>`;
+})();
+
+/* ---------------- scenarios ---------------- */
+(function () {
+  const bio = D.biological;
+  const sc = [
+    ["Bear", "low", "동결: 2026 TAC 유지", `연안국이 회복 우선으로 TAC를 ${fmt(K.ref_prev)} t에 동결`],
+    ["Base", "base", "TAC = ICES 권고", "2023·2024·2025 전례 + 4자 LTMS(HCRa)도 같은 값"],
+    ["Bull", "high", "LTMS 초안 상한 +25%", `전년 TAC ${fmt(K.ref_prev)} t × 1.25 (초안 조항, SSB<Btrigger면 미적용)`],
+  ];
+  $("scen").innerHTML = sc.map(([n, k, h, d]) => `<div class="scen ${k === "base" ? "base" : ""}">
+    <div class="head"><h3 style="font-size:15px">${n} Case</h3>${k === "base" ? tag("Forecast") : tag("Assumption")}</div>
+    <div class="v">${fmt(ref[k])} <small style="font-size:16px;color:var(--muted)">t</small></div>
+    <div><b>${h}</b></div><div class="sub">${esc(d)}</div>
+    <dl class="kv"><dt>노르웨이</dt><dd class="mono">${t(D.countries.find((c) => c.country === "Norway").expected[k])}</dd>
+      <dt>총 쿼터</dt><dd class="mono">${t(tot[k])}</dd>
+      <dt>P(SSB2028&lt;Blim)</dt><dd class="mono">${bio.p_blim_at[k] == null ? "표 범위 밖" : fmt(bio.p_blim_at[k], 1) + "%"} <span class="src">총 쿼터만큼 어획 시</span></dd></dl></div>`).join("");
+})();
+
+/* ---------------- history chart ---------------- */
+(function () {
+  const H = D.history;
+  const all = H.flatMap((h) => [h.ices_advice, h.tac, h.catch, h.ref_tac]).filter(Boolean).concat([tot.high]);
+  const y1 = Math.ceil(Math.max(...all) * 1.05 / 100000) * 100000;
+  chart($("histc"), {
+    label: "연도별 권고 TAC 어획량", h: 320, x0: 2009.5, x1: 2027.5, y0: 0, y1, yt: niceTicks(0, y1, 6), yf: kt,
+    xt: H.map((h) => h.year).filter((y) => y % 2 === 0 || y === 2027), xf: (v) => String(v), tf: (v) => String(v), vf: t,
+    series: [
+      { name: "ICES 권고", color: css("--advice"), data: H.map((h) => ({ x: h.year, y: h.ices_advice })) },
+      { name: "총 쿼터 (선언 합)", color: css("--total"), data: H.map((h) => ({ x: h.year, y: h.tac })) },
+      { name: "연안국 기준 TAC", color: css("--actual"), data: H.map((h) => ({ x: h.year, y: h.ref_tac })) },
+      { name: "ICES 어획량", color: css("--catch"), dash: "4 4", data: H.map((h) => ({ x: h.year, y: h.catch })) },
+      { name: "2027 TAC 전망", color: css("--forecast"), data: [{ x: 2027, y: ref.base, hollow: true }] },
+      { name: "2027 총 쿼터 전망", color: css("--total"), data: [{ x: 2027, y: tot.base, hollow: true }] },
+    ],
+    whiskers: [{ x: 2027, lo: ref.low, hi: ref.high, color: css("--forecast") }, { x: 2027, lo: tot.low, hi: tot.high, color: css("--total") }],
+    extraTip: (xv) => { const h = H.find((q) => q.year === xv); return h && h.tac ? `<div class="row"><span>총쿼터÷권고</span><b class="mono">${fmt(h.tac / h.ices_advice, 2)}×</b></div>` : ""; },
+  });
+  legend("hist-legend", [["ICES 권고", css("--advice")], ["총 쿼터 (ICES 'TAC' = 선언 쿼터 합)", css("--total")], ["연안국 기준 TAC (공식, 2021–)", css("--actual")], ["ICES 어획량", css("--catch"), "dash"], ["○ 2027 전망 + 범위", css("--forecast")]]);
+})();
+
+/* ---------------- stock ---------------- */
+(function () {
+  const H = D.history.filter((h) => h.ssb), rp = D.refpoints;
+  $("stock-sub").textContent = `${D.history.find((h) => h.assessment_version)?.assessment_version || ""} · 과거값 모두 최신 평가로 재추정(Revised)`;
+  const ssbMax = Math.ceil(Math.max(...H.map((h) => h.ssb_high)) / 2e6) * 2e6;
+  chart($("ssbc"), { label: "SSB", w: 380, h: 220, m: { l: 46 }, x0: 2009.5, x1: 2026.5, y0: 0, y1: ssbMax, yt: niceTicks(0, ssbMax, 4), yf: (v) => fmt(v / 1e6, 0) + "M",
+    xt: [2010, 2014, 2018, 2022, 2026], xf: String, tf: String, vf: t,
+    bands: [{ data: H.map((h) => ({ x: h.year, lo: h.ssb_low, hi: h.ssb_high })), fill: css("--forecast-band") }],
+    refs: [{ y: rp.msy_btrigger, color: css("--good"), label: "MSY Btrigger" }, { y: rp.blim, color: css("--bad"), label: "Blim" }],
+    series: [{ name: "SSB", color: css("--forecast"), r: 3, data: H.map((h) => ({ x: h.year, y: h.ssb, hollow: h.status_stock === "Forecast" })) }] });
+  const HF = D.history.filter((h) => h.f);
+  chart($("fc"), { label: "F", w: 380, h: 220, m: { l: 40 }, x0: 2009.5, x1: 2025.5, y0: 0, y1: 0.4, yt: [0, 0.1, 0.2, 0.3, 0.4], yf: (v) => v.toFixed(1),
+    xt: [2010, 2014, 2018, 2022, 2025], xf: String, tf: String, vf: (v) => v.toFixed(3),
+    bands: [{ data: HF.map((h) => ({ x: h.year, lo: h.f_low, hi: h.f_high })), fill: css("--forecast-band") }],
+    refs: [{ y: rp.fmsy, color: css("--good"), label: "FMSY 0.191" }],
+    series: [{ name: "F", color: css("--forecast"), r: 3, data: HF.map((h) => ({ x: h.year, y: h.f })) }] });
+  const HR = D.history.filter((h) => h.recruitment);
+  const rMax = Math.ceil(Math.max(...HR.map((h) => h.recruitment)) / 5e6) * 5e6;
+  chart($("rc"), { label: "R", w: 380, h: 220, m: { l: 46 }, x0: 2009.5, x1: 2026.5, y0: 0, y1: rMax, yt: niceTicks(0, rMax, 4), yf: (v) => fmt(v / 1e6, 0) + "M",
+    xt: [2010, 2014, 2018, 2022, 2026], xf: String, tf: String, vf: (v) => fmt(v),
+    series: [{ name: "R (천 마리)", color: css("--catch"), r: 3, data: HR.map((h) => ({ x: h.year, y: h.recruitment, hollow: h.status_stock === "Forecast" })) }] });
+  const b = D.biological;
+  $("bio").innerHTML = `<dl class="kv"><dt>SSB 2026 / MSY Btrigger</dt><dd class="mono">${fmt(b.ssb_over_btrigger, 2)} — Btrigger 아래 (권고 F가 FMSY보다 낮게 조정되는 구간)</dd>
+    <dt>SSB 2026 / Blim</dt><dd class="mono">${fmt(b.ssb_over_blim, 2)} — Blim 바로 위</dd>
+    <dt>F 2025 / FMSY</dt><dd class="mono">${fmt(b.f_over_fmsy, 2)} — 과잉어획 상태</dd>
+    <dt>2028 권고 방향</dt><dd>ICES 표 기준 어떤 시나리오든 SSB2027 ≈ 3.11–3.13M t (Btrigger 4.12M t 아래) → 2028년도 감액 규칙(F = FMSY × SSB/Btrigger) 적용이 유지될 가능성이 높음. 2026년 가입량(2024년급)은 IESSNS 2세 지수 하나에만 근거해 <b>미확정</b>.</dd></dl>`;
+})();
+
+/* ---------------- prices ---------------- */
+(function () {
+  const pm = D.price_model;
+  let cur = "NOK";
+  const curs = ["NOK", "EUR", "USD", "KRW"];
+  $("cur").innerHTML = curs.map((c) => `<button type="button" aria-pressed="${c === cur}" data-c="${c}">${c}</button>`).join("");
+  const conv = (period, nok) => { if (cur === "NOK") return nok; const r = D.fx[`${period}|${cur}`]; return r ? nok / r : null; };
+  const unit = () => cur === "KRW" ? "원/kg" : cur + "/kg";
+  const draw = () => {
+    const all = D.prices.filter((p) => p.market === "ALL"), kr = D.prices.filter((p) => p.market === "KR");
+    const toX = (p) => +p.slice(0, 4) + (+p.slice(5) - 1) / 12;
+    const sA = all.map((p) => ({ x: toX(p.period), y: conv(p.period, p.nok_per_kg) }));
+    const sK = kr.filter((p) => p.volume_t >= 50).map((p) => ({ x: toX(p.period), y: conv(p.period, p.nok_per_kg) }));
+    const ys = sA.concat(sK).map((d) => d.y).filter((v) => v != null);
+    const y1 = Math.max(...ys) * 1.1;
+    const dg = cur === "KRW" ? 0 : 1;
+    chart($("pxc"), { label: "수출단가", h: 280, x0: 2019, x1: 2026.75, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: (v) => fmt(v, cur === "KRW" ? 0 : 0),
+      xt: [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026], xf: String,
+      tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; },
+      vf: (v) => fmt(v, dg) + " " + unit(),
+      series: [{ name: "전체 수출", color: css("--forecast"), r: 2.5, data: sA }, { name: "한국행 (월 50t 이상)", color: css("--advice"), r: 2.5, data: sK }] });
+  };
+  $("cur").onclick = ((e) => { const b = e.target.closest("button"); if (!b) return; cur = b.dataset.c; [...$("cur").children].forEach((x) => x.setAttribute("aria-pressed", x.dataset.c === cur)); draw(); });
+  draw();
+  legend("px-legend", [["노르웨이 냉동 고등어 전체 수출 단가", css("--forecast")], ["한국행 수출 단가", css("--advice")]]);
+  const last = D.prices.filter((p) => p.market === "ALL").slice(-1)[0];
+  const seasons = Object.entries(pm.seasons).slice(-4);
+  const f26 = pm.forecasts[D.target - 1], f27 = pm.forecasts[D.target];
+  $("pxm").innerHTML = `<div class="grid2"><dl class="kv">
+      <dt>최신 (SSB 08799)</dt><dd class="mono">${last.period} · ${fmt(last.nok_per_kg, 2)} NOK/kg · ${fmt(last.volume_t)} t ${tag("Official")}</dd>
+      <dt>시즌 평균 (9월–8월)</dt><dd class="mono">${seasons.map(([s, v]) => `${s}/${String(+s + 1).slice(2)}: ${fmt(v.nok_per_kg, 1)}`).join(" · ")}</dd>
+      <dt>공급 탄력성</dt><dd class="mono">${fmt(pm.beta.elasticity, 2)} (R² ${fmt(pm.r2, 2)}, n=${pm.n}) · 연 추세 +${fmt(pm.beta.trend * 100, 1)}%</dd>
+      <dt>사이즈별 가격</dt><dd>공식 공개 자료 없음 (SSB·노르웨이 수출위원회 모두 사이즈 구분 미제공). Sildelaget 경매 데이터 접근 불가 → 표시하지 않음.</dd></dl>
+    <dl class="kv">
+      <dt>${D.target - 1}/${String(D.target).slice(2)} 시즌 모형값</dt><dd class="mono">${f26 ? `${fmt(f26.nok_per_kg, 1)} NOK/kg (80%: ${fmt(f26.lo80, 1)}–${fmt(f26.hi80, 1)})` : "—"} ${tag("Estimated")}</dd>
+      <dt>${D.target}/${String(D.target + 1).slice(2)} 시즌 모형값</dt><dd class="mono">${f27 ? `${fmt(f27.nok_per_kg, 1)} NOK/kg (80%: ${fmt(f27.lo80, 1)}–${fmt(f27.hi80, 1)})` : "—"} ${tag("Estimated")}</dd>
+      <dt>Market-implied</dt><dd>${pm.market_implied_supply ? `시장 가격이 시사하는 공급량 ${t(pm.market_implied_supply)} (Market-implied estimate)` : `2026/27 시즌 가격(9월분)은 SSB 10월 중순 공개 예정 → 공개 후 역산`}</dd>
+      <dt>주의</dt><dd>탐색용 모형. 2025/26 시즌 실제 46.8은 모형값 33.7보다 39% 높음 — 시장이 2026 쿼터 감축을 미리 반영한 것으로 보임. 가격 결정에 단독 사용 금지.</dd></dl></div>`;
+})();
+
+/* ---------------- timeline ---------------- */
+(function () {
+  const T = D.timeline;
+  const show = (i) => {
+    const e = T[i];
+    [...$("tl").children].forEach((b, j) => b.setAttribute("aria-pressed", j === i));
+    $("tldetail").innerHTML = `<b>${esc(e.label)}</b> · <span class="mono">${esc(e.date)}</span> ${e.status === "done" ? tag("Official") : e.status === "now" ? tag("Forecast") : tag("Assumption")}<p style="margin:6px 0">${esc(e.detail)}</p><div class="src">출처: ${esc(e.src)} ${e.url ? `· <a href="${esc(e.url)}" target="_blank" rel="noopener">원문</a>` : ""}</div>`;
+  };
+  $("tl").innerHTML = T.map((e, i) => `<button type="button" class="${e.status}" data-i="${i}"><span class="d">${esc(e.date)}</span><span class="l">${esc(e.label)}</span><span class="src">${e.status === "done" ? "완료" : e.status === "now" ? "진행 중" : "예정"}</span></button>`).join("");
+  $("tl").onclick = ((ev) => { const b = ev.target.closest("button"); if (b) show(+b.dataset.i); });
+  show(T.findIndex((e) => e.status === "now"));
+})();
+
+/* ---------------- database table ---------------- */
+(function () {
+  const H = D.history;
+  $("db").innerHTML = `<thead><tr><th>Year</th><th class="r">ICES Advice</th><th class="r">연안국 TAC</th><th class="r">총 쿼터 (TAC*)</th><th class="r">Catch</th><th class="r">SSB</th><th class="r">R (천)</th><th class="r">F</th><th class="r">총쿼터/권고</th><th class="r">Catch/총쿼터</th><th class="r">노르웨이 쿼터</th><th class="r">노르웨이 어획</th><th>상태</th></tr></thead><tbody>` +
+    H.map((h) => `<tr><td class="mono">${h.year}</td>
+      <td class="r mono">${h.ices_advice_low && h.ices_advice_low !== h.ices_advice_high ? `${kt(h.ices_advice_low)}–${fmt(h.ices_advice_high)}` : fmt(h.ices_advice)}</td>
+      <td class="r mono">${fmt(h.ref_tac)}</td><td class="r mono">${fmt(h.tac)}</td><td class="r mono">${fmt(h.catch)}</td>
+      <td class="r mono">${fmt(h.ssb)}</td><td class="r mono">${fmt(h.recruitment)}</td><td class="r mono">${h.f == null ? "—" : h.f.toFixed(3)}</td>
+      <td class="r mono">${h.tac && h.ices_advice ? fmt(h.tac / h.ices_advice, 2) : "—"}</td><td class="r mono">${h.tac && h.catch ? fmt(h.catch / h.tac, 2) : "—"}</td>
+      <td class="r mono">${fmt(h.norway_quota)}</td><td class="r mono">${fmt(h.norway_catch)}</td>
+      <td>${h.year === 2027 ? tag("Official") + " 권고만" : (h.ssb ? tag(h.status_stock) : "") + (h.tac ? " " + tag("Official") : "")}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td colspan="13" class="src">* ICES Table 6의 TAC = 국제 합의 TAC가 없어 각국 선언 쿼터의 합(이월 포함). 2010–2015 권고는 범위로 발표 → 상한 사용(ICES의 "2010년 이후 평균 39% 초과" 수치를 재현: 38.8%). SSB·R·F는 2026년 평가(SAM, key 25875) 단일 버전. 연안국 TAC는 공식 합의기록으로 확인된 2021년부터.</td></tr></tfoot>`;
+})();
+
+/* ---------------- sources ---------------- */
+(function () {
+  const O = D.official.filter((o) => o.key !== "coastal_share");
+  $("src").innerHTML = `<thead><tr><th>항목</th><th class="r">값</th><th>상태</th><th>출처 · 발표일 · 기준일</th></tr></thead><tbody>` +
+    O.map((o) => `<tr><td>${esc(o.key)} ${o.year} ${o.country !== "ALL" ? esc(o.country) : ""}</td>
+      <td class="r mono">${o.unit === "share" ? pct(o.value, 2) : o.unit === "ratio" ? fmt(o.value, 2) : fmt(o.value)}</td>
+      <td>${tag(o.status)} <span class="src">[${esc(o.source_tag)}]</span></td>
+      <td><a href="${esc(o.url)}" target="_blank" rel="noopener">${esc(o.source)}</a><div class="src">발표 ${esc(o.published)} · 기준 ${esc(o.data_date)}${o.note ? " · " + esc(o.note) : ""}</div></td></tr>`).join("") +
+    `</tbody>`;
+  const w = D.watch.map((x) => `<div>${esc(x.name)} · 확인 ${kst(x.last_checked)} · 변경 ${kst(x.last_changed)}</div>`).join("");
+  $("mv").textContent = `Model ${D.model_version}`;
+  $("method").innerHTML = `
+  <details class="method" open><summary>예측 구조</summary><ol>
+    <li><b>Model A (생물학)</b> — ICES 2027 권고가 이미 발표되어 공식값 사용. 자원지표(SSB/Btrigger, F/FMSY, 가입량)와 ICES 어획 시나리오 표를 보간해 각 시나리오의 SSB2028&lt;Blim 위험을 계산.</li>
+    <li><b>Model B (정치/협상)</b> — 연안국 기준 TAC = ICES 권고 (권고가 전년 TAC의 75% 이상일 때; 2021–2025 공식 기록 5년 모두 정확히 일치, 2026 급감 때만 이탈). 4자 국가의 공식 입장(TAC 수치)이 배분 50% 이상 공개되면 배분 가중평균으로 대체. Low = 동결, High = LTMS 초안 +25% 상한. 교차검증: 2010–2026 총쿼터 부분조정 회귀 ${t(D.stat[D.best_stat])}.</li>
+    <li><b>Model C (노르웨이)</b> — 4자 합의 순배분 26.40% × 기준 TAC (2028년까지 유효, 공식). 이월분(최대 10%)은 미포함.</li>
+    <li><b>총 쿼터</b> — 4자(79.45%) + 러시아·그린란드(2026년 TAC 대비 비율 유지 가정) + EU 잔차(2026 ICES 합계에서 역산). 국가가 실제 쿼터를 선언하면 그 값이 추정을 대체.</li>
+    <li><b>Model D (가격)</b> — log(시즌 수출단가) = a + b·log(총 공급) + c·연도. 탐색용.</li></ol></details>
+  <details class="method"><summary>업데이트 규칙</summary><ul>
+    <li>매시간: ICES SAG/권고 PDF, 공식 입력 CSV, 뉴스 RSS, gov.scot 2027 합의기록 감시. 가격은 6시간마다(SSB는 매월 중순 갱신).</li>
+    <li>모델 입력의 해시가 바뀔 때만 재계산 → forecasts·forecast_revisions에 기록, 입력별 기여도를 순차 치환으로 계산. 그 외에는 "변경 없음"만 기록.</li>
+    <li>뉴스는 방향(상향/하향)만 분류하며 숫자에 반영하지 않음. 기사가 공식 2027 쿼터 수치를 명시하면 표시만 하고, 원문 확인 후 official_inputs.csv에 추가될 때 반영.</li>
+    <li>2027 합의기록이 gov.scot에 게시되면 "X tonnes should represent the TAC" 문장을 자동 추출해 Official로 반영(검증 표시 포함).</li></ul></details>
+  <details class="method"><summary>신뢰도 계산 (TAC ${K.confidence} · 공급 ${K.conf_total.score})</summary>
+    <p><b>TAC 신뢰도</b> — 헤드라인 기준 TAC가 얼마나 정해졌나. 공식 합의 시 100.</p><dl class="kv">
+    <dt>협상 단계 ×${K.conf_tac.w.stage}</dt><dd class="mono">${fmt(K.conf_tac.comp.stage, 2)} (권고만 0.25 · 4자 공식 입장 공개 비율 ×0.35)</dd>
+    <dt>규칙 백테스트 ×${K.conf_tac.w.backtest_accuracy}</dt><dd class="mono">${fmt(K.conf_tac.comp.backtest_accuracy, 2)} ("TAC=권고" 규칙 ±10% 적중, 2022–2026 n=${D.backtest.S_ref_rule.metrics.n})</dd>
+    <dt>모델 일치 ×${K.conf_tac.w.model_agreement}</dt><dd class="mono">${fmt(K.conf_tac.comp.model_agreement, 2)} (통계 모델 환산 TAC vs 규칙 TAC)</dd>
+    <dt>최신성 (곱)</dt><dd class="mono">${fmt(K.conf_tac.comp.freshness, 2)}</dd></dl>
+    <p><b>공급 신뢰도</b> — 모든 국가 쿼터 합(시장 공급)이 얼마나 정해졌나.</p><dl class="kv">
+    <dt>단계 ×${K.conf_total.w.stage}</dt><dd class="mono">${fmt(K.conf_total.comp.stage, 2)} (권고 0.25 · TAC 합의 +0.35 · 선언 쿼터 비중 ×0.40)</dd>
+    <dt>백테스트 ×${K.conf_total.w.backtest_accuracy}</dt><dd class="mono">${fmt(K.conf_total.comp.backtest_accuracy, 2)} (구조 총쿼터 ±10% 적중)</dd>
+    <dt>모델 일치 ×${K.conf_total.w.model_agreement}</dt><dd class="mono">${fmt(K.conf_total.comp.model_agreement, 2)}</dd>
+    <dt>공식 입력 비중 ×${K.conf_total.w.official_share}</dt><dd class="mono">${fmt(K.conf_total.comp.official_share, 2)}</dd></dl>
+    <p>둘 다 확률이 아닌 정보 충분도 점수. 50 미만 "불확실성 높음", 70 미만 "불확실성 있음" 경고.</p></details>
+  <details class="method"><summary>데이터 감시 상태</summary><div class="mono" style="display:grid;gap:2px">${w}</div></details>`;
+})();
+} // end render
+
+/* ---------------- live loading ---------------- */
+let current = null, lastFetch = null, fetchErr = null;
+function liveStatus() {
+  const el = document.getElementById("live");
+  if (!el || D0) return;
+  const age = current ? (Date.now() - new Date(current.generated).getTime()) / 36e5 : null;
+  const stale = age != null && age > 3;
+  el.innerHTML = `<span class="dot" style="background:${fetchErr ? "var(--bad)" : stale ? "var(--warn)" : "var(--good)"}"></span>` +
+    (fetchErr ? "데이터를 불러오지 못했습니다 · 5분 뒤 다시 시도" :
+     `실시간 · 페이지 확인 ${new Date(lastFetch).toLocaleTimeString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" })}` +
+     (stale ? ` · ⚠ 데이터가 ${Math.floor(age)}시간 전 것 (맥이 꺼져 있거나 잠자기 상태)` : ""));
+}
+const KEY_STORE = "mackerel-dashboard-key-v1";
+let cryptoKey = null, encBlob = null;
+const b64d = (x) => Uint8Array.from(atob(x), (c) => c.charCodeAt(0));
+const b64e = (u) => btoa(String.fromCharCode(...new Uint8Array(u)));
+async function deriveKey(pw, enc) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64d(enc.salt), iterations: enc.iter, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, true, ["decrypt"]);
+}
+async function decryptBlob(key, enc) {
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64d(enc.iv) }, key, b64d(enc.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function storedKey() {
+  try { const raw = localStorage.getItem(KEY_STORE); if (!raw) return null;
+    return await crypto.subtle.importKey("raw", b64d(raw), { name: "AES-GCM" }, true, ["decrypt"]); } catch (e) { return null; }
+}
+function lock(msg) {
+  document.body.classList.add("locked");
+  $("lock").hidden = false;
+  $("lockerr").textContent = msg || "";
+  const lv = document.getElementById("live"); if (lv) lv.hidden = true;
+}
+function unlocked() {
+  document.body.classList.remove("locked");
+  $("lock").hidden = true;
+  const lv = document.getElementById("live"); if (lv) lv.hidden = false;
+}
+$("lockform").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = $("unlockbtn"); btn.disabled = true; btn.textContent = "확인 중…"; $("lockerr").textContent = "";
+  try {
+    if (!encBlob) await fetchBlob();
+    const key = await deriveKey($("pw").value, encBlob);
+    const d = await decryptBlob(key, encBlob);
+    cryptoKey = key;
+    if ($("remember").checked) { try { localStorage.setItem(KEY_STORE, b64e(await crypto.subtle.exportKey("raw", key))); } catch (er) {} }
+    $("pw").value = "";
+    unlocked(); lastFetch = Date.now(); fetchErr = null;
+    current = d; render(d); liveStatus();
+  } catch (er) { $("lockerr").textContent = "비밀번호가 맞지 않습니다. 다시 입력해 주십시오."; }
+  btn.disabled = false; btn.textContent = "열기";
+});
+async function fetchBlob() {
+  const r = await fetch("data.enc.json?ts=" + Date.now(), { cache: "no-store" });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  encBlob = await r.json();
+  return encBlob;
+}
+async function load() {
+  try {
+    await fetchBlob();
+    lastFetch = Date.now(); fetchErr = null;
+  } catch (e) { fetchErr = e; liveStatus(); return; }
+  if (!cryptoKey) cryptoKey = await storedKey();
+  if (!cryptoKey) { if (!current) lock(); return; }
+  try {
+    const d = await decryptBlob(cryptoKey, encBlob);
+    unlocked();
+    if (!current || d.generated !== current.generated) { current = d; render(d); }
+  } catch (e) {
+    cryptoKey = null; try { localStorage.removeItem(KEY_STORE); } catch (er) {}
+    current = null; lock("비밀번호가 바뀌었습니다. 새 비밀번호를 입력해 주십시오.");
+  }
+  liveStatus();
+}
+function forget() { try { localStorage.removeItem(KEY_STORE); } catch (e) {} cryptoKey = null; current = null; lock("잠갔습니다."); }
+if (D0) { document.getElementById("live").hidden = true; current = D0; render(D0); }
+else { load(); setInterval(load, 5 * 60 * 1000); document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); }); }
+try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => current && render(current)); } catch (e) {}
+new MutationObserver(() => current && render(current)).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>
+</body></html>
