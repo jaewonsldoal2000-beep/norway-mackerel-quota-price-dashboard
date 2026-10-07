@@ -123,6 +123,31 @@ details.method p, details.method li { color: var(--ink-2); max-width: 80ch; }
 .kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 13px; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; }
 
+/* tabs */
+.tabs { display: flex; gap: 4px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; background: var(--bg); padding-block: 6px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs button { all: unset; cursor: pointer; padding: 8px 14px; border-radius: 8px; font: 600 14px var(--f-body); color: var(--ink-2); white-space: nowrap; }
+.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.tabs button:focus-visible { outline: 2px solid var(--forecast); outline-offset: 2px; }
+.tab { display: grid; gap: 18px; }
+.headline { display: grid; gap: 8px; padding-block: 6px; }
+.hl-label { font: 600 12px var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.hl { margin: 0; font: 600 clamp(19px, 2.3vw, 24px)/1.45 var(--f-body); max-width: 70ch; text-wrap: pretty; }
+.changes { display: flex; flex-wrap: wrap; gap: 6px; }
+.chg { display: inline-flex; gap: 6px; align-items: baseline; font-size: 13px; padding: 4px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.chg b { font-family: var(--f-mono); font-weight: 500; }
+.riskmini { display: grid; gap: 0; }
+.riskmini .r { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.riskmini .r:last-child { border-bottom: 0; }
+.riskmini .d { color: var(--muted); font-size: 12.5px; text-align: right; }
+.mini { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.mini .m { display: grid; gap: 2px; align-content: start; }
+.mini .k { font-size: 12px; color: var(--ink-2); }
+.mini .v { font: 700 28px/1.05 var(--f-display); font-variant-numeric: tabular-nums; }
+.mini .v small { font-size: .5em; color: var(--muted); }
+.mini .n { font-size: 12px; color: var(--muted); }
+details.panel > summary.sumh { cursor: pointer; font: 600 13px var(--f-body); letter-spacing: .06em; color: var(--ink-2); }
+abbr[title] { text-decoration: underline dotted; cursor: help; }
+@media (max-width: 620px) { .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* buyer risk layer */
 .horizons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .hz { padding: 18px; display: grid; gap: 10px; align-content: start; border-right: 1px solid var(--line); min-width: 0; }
@@ -154,7 +179,7 @@ details.method p, details.method li { color: var(--ink-2); max-width: 80ch; }
   .brief { grid-template-columns: 1fr; }
   .tl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-body.locked .wrap > section:not(#lock):not(.board), body.locked .wrap > .grid2, body.locked .board { display: none; }
+body.locked .wrap > :not(header):not(#lock) { display: none !important; }
 #lock { max-width: 420px; margin: 8vh auto 0; width: 100%; }
 #lock form { display: grid; gap: 10px; }
 #lock input[type=password] { font: 16px var(--f-body); padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
@@ -187,105 +212,127 @@ body.locked .wrap > section:not(#lock):not(.board), body.locked .wrap > .grid2, 
     </form>
   </section>
 
-  <section class="horizons" id="horizons" aria-label="구매 리스크 요약"></section>
+  <nav class="tabs" role="tablist" aria-label="화면">
+    <button type="button" role="tab" id="t-buy" data-tab="buy" aria-controls="tab-buy">구매 판단</button>
+    <button type="button" role="tab" id="t-season" data-tab="season" aria-controls="tab-season">시즌 · 가격</button>
+    <button type="button" role="tab" id="t-forecast" data-tab="forecast" aria-controls="tab-forecast">2027 전망</button>
+    <button type="button" role="tab" id="t-evidence" data-tab="evidence" aria-controls="tab-evidence">근거</button>
+  </nav>
 
-  <section class="panel" aria-labelledby="h-season">
-    <div class="head"><h2 id="h-season">올해 시즌 진행 현황 · 노르웨이</h2><span class="sub" id="season-sub"></span></div>
-    <div class="legend" id="season-legend"></div>
-    <div class="chart" id="seasonc"></div>
-    <div class="sub" id="season-note"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-risk">
-    <div class="head"><h2 id="h-risk">리스크 목록</h2><span class="sub">가능성은 공개 수치에 고정 규칙을 적용한 결과 · 확률 아님</span></div>
-    <div class="scroll"><table id="risks"></table></div>
-  </section>
-
-  <div class="sectionlabel">2027 TAC 전망 (상세)</div>
-  <section class="board" aria-label="핵심 지표">
-    <div class="hero" id="hero"><div class="label">2027 TAC 전망</div><div class="sub">최신 전망을 불러오는 중…</div></div>
-    <div class="tiles" id="tiles"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-brief">
-    <div class="head"><h2 id="h-brief">10초 브리핑</h2><span class="sub">질문 ①–⑩ 에 대한 현재 답 · 자동 생성</span></div>
-    <ol class="brief" id="brief"></ol>
-  </section>
-
-  <section class="panel" aria-labelledby="h-fh">
-    <div class="head"><h2 id="h-fh">2027 NEA Mackerel TAC Forecast History</h2><span class="sub" id="fh-note"></span></div>
-    <div class="legend" id="fh-legend"></div>
-    <div class="chart" id="fh"></div>
-  </section>
-
-  <div class="grid2">
-    <section class="panel" aria-labelledby="h-cty">
-      <div class="head"><h2 id="h-cty">국가별 쿼터 전망 (2027)</h2><span class="sub">기준 = 연안국 TAC base</span></div>
-      <div class="scroll"><table id="cty"></table></div>
+  <div class="tab" id="tab-buy" role="tabpanel" aria-labelledby="t-buy">
+    <section class="headline" aria-label="오늘의 결론">
+      <div class="hl-label">오늘의 결론</div>
+      <p class="hl" id="headline"></p>
+      <div class="changes" id="changes"></div>
     </section>
-    <section class="panel" aria-labelledby="h-why">
-      <div class="head"><h2 id="h-why">왜 바뀌었나</h2><span class="sub" id="why-sub"></span></div>
-      <div id="why"></div>
+    <section class="horizons" id="horizons" aria-label="구매 리스크 요약"></section>
+    <section class="panel" aria-labelledby="h-riskmini">
+      <div class="head"><h2 id="h-riskmini">주요 리스크</h2><button type="button" class="linkbtn" data-goto="evidence">자세히 보기 →</button></div>
+      <div id="riskmini" class="riskmini"></div>
     </section>
-    <section class="panel" aria-labelledby="h-ev">
-      <div class="head"><h2 id="h-ev">최신 이벤트</h2><span class="sub">뉴스는 방향만 표시 · 예측치에 반영 안 됨</span></div>
-      <div id="events"></div>
+    <section class="panel">
+      <div class="head"><h2>2027 핵심 숫자</h2><button type="button" class="linkbtn" data-goto="forecast">2027 전망 탭 →</button></div>
+      <div class="mini" id="mini"></div>
     </section>
-    <section class="panel" aria-labelledby="h-acc">
-      <div class="head"><h2 id="h-acc">예측 정확도 (백테스트)</h2><span class="sub">당시 알 수 있던 정보만 사용</span></div>
-      <div id="acc"></div>
+    <details class="panel">
+      <summary class="sumh">질문 ①–⑩ 에 대한 현재 답 보기</summary>
+      <ol class="brief" id="brief"></ol>
+    </details>
+  </div>
+
+  <div class="tab" id="tab-season" role="tabpanel" aria-labelledby="t-season" hidden>
+    <section class="panel" aria-labelledby="h-season">
+      <div class="head"><h2 id="h-season">올해 시즌 진행 · 노르웨이</h2><span class="sub" id="season-sub"></span></div>
+      <div class="legend" id="season-legend"></div>
+      <div class="chart" id="seasonc"></div>
+      <div class="sub" id="season-note"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-week">
+      <div class="head"><h2 id="h-week">원어 가격 · 환율</h2><span class="sub">Norges Sildesalgslag · Norges Bank</span></div>
+      <div class="mini" id="weekly"></div>
+      <div id="weeklist"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-px">
+      <div class="head"><h2 id="h-px">냉동 고등어 수출단가</h2>
+        <div class="seg" role="group" aria-label="통화" id="cur"></div></div>
+      <div class="legend" id="px-legend"></div>
+      <div class="chart" id="pxc"></div>
+      <div id="pxm"></div>
     </section>
   </div>
 
-  <section class="panel" aria-labelledby="h-scen">
-    <div class="head"><h2 id="h-scen">시나리오</h2><span class="sub">모든 기준점은 공식 수치 · 위험도는 ICES 어획 시나리오 표(Table 2) 보간</span></div>
-    <div class="grid3" id="scen"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-hist">
-    <div class="head"><h2 id="h-hist">ICES 권고 · TAC · 어획량 (2010–2027)</h2><span class="sub">ICES Advice 2026 Table 6 · 단일 버전</span></div>
-    <div class="legend" id="hist-legend"></div>
-    <div class="chart" id="histc"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-stock">
-    <div class="head"><h2 id="h-stock">자원 상태 (Model A 입력)</h2><span class="sub" id="stock-sub"></span></div>
-    <div class="grid3">
-      <div><div class="sub">산란자원량 SSB (t) · 95% CI</div><div class="chart" id="ssbc"></div></div>
-      <div><div class="sub">어획사망률 F (4–8세)</div><div class="chart" id="fc"></div></div>
-      <div><div class="sub">가입량 R (2세, 천 마리)</div><div class="chart" id="rc"></div></div>
+  <div class="tab" id="tab-forecast" role="tabpanel" aria-labelledby="t-forecast" hidden>
+    <section class="board" aria-label="2027 핵심 지표">
+      <div class="hero" id="hero"><div class="label">2027 TAC 전망</div><div class="sub">최신 전망을 불러오는 중…</div></div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-fh">
+      <div class="head"><h2 id="h-fh">2027 TAC 전망 이력 (Forecast History)</h2><span class="sub" id="fh-note"></span></div>
+      <div class="legend" id="fh-legend"></div>
+      <div class="chart" id="fh"></div>
+    </section>
+    <div class="grid2">
+      <section class="panel" aria-labelledby="h-cty">
+        <div class="head"><h2 id="h-cty">국가별 쿼터 전망</h2><span class="sub">기준 TAC 전망 기준</span></div>
+        <div class="scroll"><table id="cty"></table></div>
+      </section>
+      <section class="panel" aria-labelledby="h-why">
+        <div class="head"><h2 id="h-why">왜 바뀌었나</h2><span class="sub" id="why-sub"></span></div>
+        <div id="why"></div>
+      </section>
     </div>
-    <div id="bio"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-px">
-    <div class="head"><h2 id="h-px">노르웨이 냉동 고등어 수출단가 (Model D)</h2>
-      <div class="seg" role="group" aria-label="통화" id="cur"></div></div>
-    <div class="legend" id="px-legend"></div>
-    <div class="chart" id="pxc"></div>
-    <div id="pxm"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-tl">
-    <div class="head"><h2 id="h-tl">2027 Mackerel Quota Timeline</h2><span class="sub">단계를 누르면 근거와 출처</span></div>
-    <div class="tl" id="tl"></div>
-    <div class="tldetail" id="tldetail"></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h-db">
-    <div class="head"><h2 id="h-db">과거 데이터베이스</h2><span class="sub">상태 태그: Official · Revised · Derived · Forecast · Assumption</span></div>
-    <div class="scroll"><table id="db"></table></div>
-  </section>
-
-  <div class="grid2">
-    <section class="panel" aria-labelledby="h-src">
-      <div class="head"><h2 id="h-src">공식 입력값과 출처</h2><span class="sub">sources/official_inputs.csv</span></div>
-      <div class="scroll"><table id="src"></table></div>
+    <section class="panel" aria-labelledby="h-scen">
+      <div class="head"><h2 id="h-scen">시나리오</h2><span class="sub">기준점은 모두 공식 수치</span></div>
+      <div class="grid3" id="scen"></div>
     </section>
-    <section class="panel" aria-labelledby="h-m">
-      <div class="head"><h2 id="h-m">모델 계산 방식</h2><span class="sub" id="mv"></span></div>
-      <div id="method"></div>
+    <section class="panel" aria-labelledby="h-tl">
+      <div class="head"><h2 id="h-tl">2027 쿼터 결정 일정</h2><span class="sub">단계를 누르면 근거와 출처</span></div>
+      <div class="tl" id="tl"></div>
+      <div class="tldetail" id="tldetail"></div>
     </section>
+    <section class="panel" aria-labelledby="h-ev">
+      <div class="head"><h2 id="h-ev">최신 뉴스</h2><span class="sub">뉴스는 방향만 표시 · 숫자에는 반영 안 함</span></div>
+      <div id="events"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-hist">
+      <div class="head"><h2 id="h-hist">ICES 권고 · TAC · 어획량 (2010–2027)</h2><span class="sub">ICES 2026 권고 원문 표 6</span></div>
+      <div class="legend" id="hist-legend"></div>
+      <div class="chart" id="histc"></div>
+    </section>
+  </div>
+
+  <div class="tab" id="tab-evidence" role="tabpanel" aria-labelledby="t-evidence" hidden>
+    <section class="panel" aria-labelledby="h-risk">
+      <div class="head"><h2 id="h-risk">리스크 상세</h2><span class="sub">가능성 = 공개 수치에 고정 규칙 적용 · 확률 아님</span></div>
+      <div class="scroll"><table id="risks"></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-acc">
+      <div class="head"><h2 id="h-acc">예측 정확도 (과거 검증)</h2><span class="sub">당시 알 수 있던 정보만 사용</span></div>
+      <div id="acc"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-stock">
+      <div class="head"><h2 id="h-stock">자원 상태</h2><span class="sub" id="stock-sub"></span></div>
+      <div class="grid3">
+        <div><div class="sub"><abbr title="Spawning Stock Biomass: 알을 낳을 수 있는 어미 고등어 총량">산란 자원량 (SSB)</abbr> · 톤 · 95% 범위</div><div class="chart" id="ssbc"></div></div>
+        <div><div class="sub"><abbr title="Fishing mortality F (4–8세): 한 해에 잡혀 나가는 비율의 지표. 높을수록 과잉 어획">어획 강도 (F)</abbr></div><div class="chart" id="fc"></div></div>
+        <div><div class="sub"><abbr title="Recruitment: 2살이 되어 새로 어장에 들어오는 고등어 수">새로 들어오는 고등어 (2세, 천 마리)</abbr></div><div class="chart" id="rc"></div></div>
+      </div>
+      <div id="bio"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-db">
+      <div class="head"><h2 id="h-db">과거 데이터</h2><span class="sub">상태 표시: Official 공식 · Revised 재추정 · Derived 역산 · Forecast 전망 · Assumption 가정</span></div>
+      <div class="scroll"><table id="db"></table></div>
+    </section>
+    <div class="grid2">
+      <section class="panel" aria-labelledby="h-src">
+        <div class="head"><h2 id="h-src">공식 입력값과 출처</h2></div>
+        <div class="scroll"><table id="src"></table></div>
+      </section>
+      <section class="panel" aria-labelledby="h-m">
+        <div class="head"><h2 id="h-m">계산 방식</h2><span class="sub" id="mv"></span></div>
+        <div id="method"></div>
+      </section>
+    </div>
   </div>
 </div>
 
@@ -301,6 +348,67 @@ const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 const tag = (s) => `<span class="tag t-${esc((s || "").split(" ")[0])}">${esc(s)}</span>`;
 const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const kst = (iso) => { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 16) + " KST"; };
+/* ---------------- plain-Korean labels for model basis strings ---------------- */
+function ko(s) {
+  s = String(s || "");
+  const rules = [
+    [/^Rule: reference TAC = ICES advice.*/, "규칙: TAC = ICES 권고 (2021–2025년 공식기록 5년 모두 일치, 4개국 장기관리전략 초안도 같은 값)"],
+    [/^Rule: smoothed cut as in 2026.*/, "규칙: 2026년처럼 완만하게 감축 (−48%)"],
+    [/^Official agreed reference TAC/, "공식 합의 TAC"],
+    [/^Official positions of (.+) \(net-share weighted, (\d+)% coverage\)/, "공식 입장 반영: $1 (배분 가중, 배분 $2% 공개)"],
+    [/^Official net share ([\d.]+)% x reference TAC/, "공식 순배분 $1% × TAC"],
+    [/^Net share ([\d.]+)% x ([\d,]+) t/, "순배분 $1% × $2 t"],
+    [/^Unilateral; assumes 2026 ratio to reference TAC \(([\d.]+)%\)/, "독자 선언 · 2026년 비율($1%) 유지 가정"],
+    [/^Unilateral; assumes 2026 ratio \(([\d.]+)%\)/, "독자 선언 · 2026년 비율($1%) 유지 가정"],
+    [/^Derived 2026 residual incl\. all inter-annual transfers \(([\d.]+)%\)/, "2026 ICES 합계에서 역산 · 이월 포함 ($1%)"],
+    [/^Declared national quota/, "국가 공식 선언 쿼터"],
+    [/^Unilateral \(EC 23 Jun 2026\)/, "독자 선언 (EU 집행위원회 2026-06-23)"],
+    [/^Unilateral \(Naalakkersuisut, via industry press\)/, "독자 선언 (그린란드 정부, 업계지 경유)"],
+    [/^ICES total ([\d,]+) t minus all other quotas \(incl\. transfers\)/, "ICES 합계 $1 t − 다른 나라 쿼터 (이월 포함)"],
+  ];
+  for (const [re, rep] of rules) if (re.test(s)) return s.replace(re, rep);
+  return s;
+}
+
+/* ---------------- tabs ---------------- */
+const TABS = ["buy", "season", "forecast", "evidence"];
+function showTab(id) {
+  if (!TABS.includes(id)) id = "buy";
+  TABS.forEach((t) => { $("tab-" + t).hidden = t !== id; $("t-" + t).setAttribute("aria-selected", String(t === id)); });
+  try { localStorage.setItem("mk-tab", id); } catch (e) {}
+  try { if (location.hash.slice(1) !== id) history.replaceState(null, "", "#" + id); } catch (e) {}
+}
+document.querySelector(".tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) showTab(b.dataset.tab); });
+document.addEventListener("click", (e) => { const g = e.target.closest("[data-goto]"); if (g) { showTab(g.dataset.goto); window.scrollTo(0, 0); } });
+(function () { let st = null; try { st = localStorage.getItem("mk-tab"); } catch (e) {} const h = location.hash.slice(1); showTab(TABS.includes(h) ? h : st || "buy"); })();
+
+/* ---------------- "since your last visit" ---------------- */
+function snapshot(D) {
+  const R = D.risk, K = D.kpi;
+  return { at: D.generated, sig: R.horizons.map((h) => h.signal.label), tac: Math.round(K.ref.base), nor: Math.round(K.norway.base),
+    tot: Math.round(K.total.base), rem: R.season.quota ? R.season.quota.remaining : null,
+    wk: R.season.week ? R.season.week.avg_nok_kg : null, conf: K.confidence,
+    risks: Object.fromEntries(R.risks.map((r) => [r.name, r.likelihood_ko])) };
+}
+function changesSince(D) {
+  const now = snapshot(D);
+  let prev = null, cur = null;
+  try { prev = JSON.parse(localStorage.getItem("mk-seen-prev") || "null"); cur = JSON.parse(localStorage.getItem("mk-seen-cur") || "null"); } catch (e) {}
+  // rotate: the snapshot from an earlier visit (>30 min ago) becomes the comparison base
+  if (cur && cur.at !== now.at && (Date.now() - (cur.savedAt || 0)) > 30 * 60 * 1000) { prev = cur; }
+  try { localStorage.setItem("mk-seen-prev", JSON.stringify(prev)); localStorage.setItem("mk-seen-cur", JSON.stringify({ ...now, savedAt: (cur && cur.at === now.at) ? cur.savedAt : Date.now() })); } catch (e) {}
+  if (!prev) return `<span class="chg">첫 방문 · 다음 방문부터 바뀐 점이 여기에 표시됩니다</span>`;
+  const out = [], names = ["지금", "비수기", "2027 시즌"];
+  now.sig.forEach((s, i) => { if (prev.sig && prev.sig[i] !== s) out.push(`${names[i]} 신호 <b>${esc(prev.sig[i])} → ${esc(s)}</b>`); });
+  const num = (label, a, b, unit, d = 0) => { if (a != null && b != null && Math.abs(a - b) > (d ? 0.005 : 0.5)) out.push(`${label} <b>${fmt(a, d)} → ${fmt(b, d)}${unit}</b>`); };
+  num("2027 TAC", prev.tac, now.tac, " t"); num("노르웨이 전망", prev.nor, now.nor, " t"); num("노르웨이 잔여", prev.rem, now.rem, " t");
+  num("주간 원어가", prev.wk, now.wk, " NOK/kg", 2); num("TAC 신뢰도", prev.conf, now.conf, "");
+  Object.entries(now.risks).forEach(([k, v]) => { if (prev.risks && prev.risks[k] && prev.risks[k] !== v) out.push(`${esc(k)} <b>${prev.risks[k]} → ${v}</b>`); });
+  const since = kst(prev.at).slice(5, 16);
+  return out.length ? `<span class="chg">${since} 이후</span>` + out.map((x) => `<span class="chg">${x}</span>`).join("")
+                    : `<span class="chg">${since} 이후 바뀐 것 없음</span>`;
+}
+
 function render(D) {
 const K = D.kpi, ref = K.ref, tot = K.total;
 const R = D.risk;
@@ -317,7 +425,7 @@ const dcls = d24 == null ? "flat" : d24 > 0 ? "up" : d24 < 0 ? "down" : "flat";
 const dtxt = d24 == null ? `기록 시작 ${kst(K.first_forecast)} · 24시간 비교 불가` : d24 === 0 ? "± 0 t / 24h · 변경 없음" : `${d24 > 0 ? "▲" : "▼"} ${sgn(d24)} t / 24h`;
 const lowConf = K.confidence < 50, midConf = !lowConf && K.confidence < 70;
 $("hero").innerHTML = `
-  <div class="label">2027 TAC 전망 · 연안국 기준 TAC (base)</div>
+  <div class="label">2027 TAC 전망 · 연안국 합의 기준 (기본값)</div>
   <div class="big">${fmt(ref.base)}<small>t</small></div>
   <div class="delta ${dcls}">${dtxt}</div>
   <div class="rangebar" aria-label="전망 범위">
@@ -328,12 +436,12 @@ $("hero").innerHTML = `
     <div class="lab" style="left:${P(ref.low)}">${kt(ref.low)}</div>
     <div class="lab" style="left:${P(ref.high)}">${kt(ref.high)}</div>
   </div>
-  <div class="sub">범위 <b class="mono">${fmt(ref.low)} — ${fmt(ref.high)} t</b> · 근거: ${esc(ref.basis)}</div>
+  <div class="sub">범위 <b class="mono">${fmt(ref.low)} — ${fmt(ref.high)} t</b> · 근거: ${esc(ko(ref.basis))}</div>
   ${lowConf || midConf ? `<div class="warnbox" role="note"><span aria-hidden="true">⚠</span><span>${lowConf ? "불확실성 높음" : "불확실성 있음"} · TAC 신뢰도 ${K.confidence}/100 · ${esc(K.conf_tac.note)} · 아직 연안국 합의 전</span></div>` : ""}`;
 const m = K.multiplier;
 const tiles = [
   ["ICES 권고 2027", `${fmt(D.kpi.advice)}<small> t</small>`, `2026 권고 174,357 t 대비 +102% · ${tag("Official")}`],
-  ["정치적 승수", `${fmt(m.ref_base, 2)}<small> ×</small>`, `TAC÷권고. 총쿼터 기준 ${fmt(m.total_base, 2)}× · 과거 중앙값 ${fmt(m.hist.median, 2)}× (${m.hist.years})`],
+  ["권고 대비 배율", `${fmt(m.ref_base, 2)}<small> ×</small>`, `TAC÷ICES 권고. 전체 쿼터 합 기준 ${fmt(m.total_base, 2)}배 · 2010년 이후 중앙값 ${fmt(m.hist.median, 2)}배`],
   ["노르웨이 쿼터 전망", `${fmt(K.norway.base)}<small> t</small>`, `${fmt(K.norway.low)} — ${fmt(K.norway.high)} t · 순배분 26.40% × TAC`],
   ["시장 공급 (총 쿼터)", `${fmt(tot.base)}<small> t</small>`, `모든 국가 선언 쿼터 합 · 2026 ${fmt(K.total_prev)} t`],
   ["신뢰도 (TAC · 공급)", `${K.confidence}<small> · ${K.conf_total.score}</small>`, `확률 아님 · TAC 합의 시 TAC는 100 · 공급은 국가 쿼터 선언에 따라 상승`],
@@ -365,6 +473,27 @@ $("brief").innerHTML = brief.map((b) => `<li><span>${b}</span></li>`).join("");
 
 /* ---------------- buyer risk layer ---------------- */
 function renderRisk(D, R) {
+  const H3 = R.horizons;
+  $("headline").innerHTML = `지금은 <b>${esc(H3[0].short)}</b>, 비수기 재고는 <b>${esc(H3[1].short)}</b>, 2027년산은 <b>${esc(H3[2].short)}</b>.`;
+  $("changes").innerHTML = D0 ? "" : changesSince(D);
+  $("riskmini").innerHTML = R.risks.map((r) => `<div class="r"><span class="lv lv-${r.likelihood_ko}">${r.likelihood_ko}</span><span>${esc(r.name)}</span><span class="d">${esc(r.dir)}</span></div>`).join("");
+  const K2 = D.kpi;
+  $("mini").innerHTML = [
+    ["2027 TAC 전망", fmt(K2.ref.base), "t", `${fmt(K2.ref.low)}–${fmt(K2.ref.high)}`],
+    ["노르웨이 쿼터 전망", fmt(K2.norway.base), "t", `2026년 대비 ${pct(R.norway_change.base, 0)}`],
+    ["ICES 권고", fmt(K2.advice), "t", "2026-09-30 발표 · 공식"],
+    ["TAC 신뢰도", K2.confidence, "/100", "12월 합의 시 100"],
+  ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
+  const S0 = R.season, wk = S0.week || {}, ytd = S0.ytd || {}, fx = R.fx;
+  $("weekly").innerHTML = [
+    ["지난주 원어 가격", wk.avg_nok_kg != null ? fmt(wk.avg_nok_kg, 2) : "—", "NOK/kg", wk.period_start ? `${wk.period_start.slice(5)}~${(wk.period_end || "").slice(5)} · ${fmt(wk.qty_t)} t · 작년 같은 주 ${fmt(wk.ly_avg_nok_kg, 2)}` : ""],
+    ["올해 누적 평균", ytd.avg_nok_kg != null ? fmt(ytd.avg_nok_kg, 2) : "—", "NOK/kg", ytd.qty_t ? `${fmt(ytd.qty_t)} t · 작년 ${fmt(ytd.ly_avg_nok_kg, 2)}` : ""],
+    ["원화 환산 (지난주)", wk.avg_nok_kg != null && fx ? fmt(wk.avg_nok_kg * fx.krw_per_nok_end, 0) : "—", "원/kg", fx ? `${fx.end} 월평균 ${fmt(fx.krw_per_nok_end, 1)} 원/NOK` : ""],
+    ["원/NOK 3개월", fx ? (fx.change > 0 ? "+" : "") + fmt(fx.change * 100, 1) : "—", "%", fx ? (fx.change > 0 ? "크로네 강세 → 수입가 ↑" : "크로네 약세 → 수입가 ↓ (유리)") : ""],
+  ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
+  const W = S0.weeks || [];
+  $("weeklist").innerHTML = W.length > 1 ? `<div class="scroll"><table><thead><tr><th>주</th><th class="r">물량 t</th><th class="r">평균 NOK/kg</th><th class="r">작년 같은 주</th></tr></thead><tbody>${W.slice().reverse().map((w) => `<tr><td class="mono">${w.period_start}</td><td class="r mono">${fmt(w.qty_t)}</td><td class="r mono">${fmt(w.avg_nok_kg, 2)}</td><td class="r mono">${fmt(w.ly_avg_nok_kg, 2)}</td></tr>`).join("")}</tbody></table></div>`
+    : `<div class="sub">주간 가격은 2026-10-07부터 매주 쌓입니다 (Sildelaget 매주 월요일 갱신).</div>`;
   const fv = (f) => f.v == null ? "" : (f.unit === "%" ? fmt(f.v, 0) + "%" : f.unit === "t" ? fmt(f.v) + " t" : f.unit === "NOK/kg" ? fmt(f.v, 2) + " NOK/kg" : f.unit === "원/NOK" ? fmt(f.v, 1) + " 원/NOK" : fmt(f.v) + (f.unit || ""));
   const arrow = { up: "▲", down: "▼", wait: "◆", flat: "●" };
   $("horizons").innerHTML = R.horizons.map((h) => `<article class="hz">
@@ -378,12 +507,12 @@ function renderRisk(D, R) {
   const doy = (iso) => { const d = new Date(iso + "T00:00:00Z"), y0 = Date.UTC(d.getUTCFullYear(), 0, 1); return (d - y0) / 864e5 + 1; };
   const cols = [css("--muted"), css("--catch"), css("--forecast")];
   const series = yrs.map((y, i) => ({ name: `${y}년 누적 어획`, color: cols[i - (yrs.length - 3)] || cols[i], r: y === yrs[yrs.length - 1] ? 3 : 2,
-    data: S.progress.filter((p) => p.year === y).map((p) => ({ x: Math.round(doy(p.as_of)), y: p.caught })) }));
+    data: S.progress.filter((p) => p.year === y && doy(p.as_of) >= 182).map((p) => ({ x: Math.round(doy(p.as_of)), y: p.caught })) }));
   const q = S.quota || {};
   const ymax = Math.ceil(Math.max(...S.progress.map((p) => Math.max(p.caught, p.assigned))) * 1.08 / 25000) * 25000;
-  const mstarts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
-  chart($("seasonc"), { label: "노르웨이 고등어 누적 어획", h: 300, x0: 1, x1: 366, y0: 0, y1: ymax, yt: niceTicks(0, ymax, 5), yf: kt,
-    xt: mstarts, xf: (v) => (mstarts.indexOf(v) + 1) + "월", tf: (v) => { const d = new Date(Date.UTC(2026, 0, v)); return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`; }, vf: t,
+  const mstarts = [182, 213, 244, 274, 305, 335];
+  chart($("seasonc"), { label: "노르웨이 고등어 누적 어획 (7–12월)", h: 300, x0: 182, x1: 366, y0: 0, y1: ymax, yt: niceTicks(0, ymax, 5), yf: kt,
+    xt: mstarts, xf: (v) => (mstarts.indexOf(v) + 7) + "월", tf: (v) => { const d = new Date(Date.UTC(2026, 0, v)); return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`; }, vf: t,
     series,
     refs: q.available ? [{ y: q.available, color: css("--forecast"), dash: "2 4", label: `${yrs[yrs.length - 1]} 가용 쿼터 ${fmt(q.available)} t` }] : [],
     extraTip: (xv) => "" });
@@ -496,14 +625,14 @@ const legend = (id, items) => { $(id).innerHTML = items.map(([n, c, k]) => `<spa
     D.countries.map((c) => {
       const hs = c.hist.length ? pct(c.hist.reduce((a, h) => a + h.share_of_reported, 0) / c.hist.length) : "—";
       return `<tr><td><b>${flags[c.country] || ""} ${esc(c.country)}</b></td>
-        <td class="r mono">${fmt(c.q2026.value)}<div>${tag(c.q2026.status)}</div></td>
+        <td class="r mono">${fmt(c.q2026.value)}<div>${tag(c.q2026.status)}</div><div class="src">${esc(ko(c.q2026.basis))}</div></td>
         <td class="r mono">${hs}</td>
         <td class="r"><b class="num" style="font-size:20px">${fmt(c.expected.base)}</b><div class="src">${fmt(c.expected.low)}–${fmt(c.expected.high)}</div>
           <div class="bar" style="width:${(c.expected.base / maxv * 100).toFixed(1)}%;margin-left:auto"></div></td>
         <td class="r mono">${pct(c.share_of_ref)}</td>
         <td><div>${esc(stance[c.country] || "")}</div>
           <div>${c.positions && c.positions.length ? c.positions.map((p) => `<b>공식 입장:</b> ${p.key === "position_tac" ? t(p.value) : (p.value > 0 ? "권고보다 높게" : p.value < 0 ? "권고보다 낮게" : "권고 수준")} <span class="src">${esc(p.published)} · <a href="${esc(p.url)}" target="_blank" rel="noopener">출처</a></span>`).join("<br>") : `<span class="src">2027 공식 입장 미발표</span>`}</div>
-          <div class="src">${esc(c.basis)}</div>${tag(c.status)}</td></tr>`;
+          <div class="src">${esc(ko(c.basis))}</div>${tag(c.status)}</td></tr>`;
     }).join("") + `</tbody>`;
 })();
 
