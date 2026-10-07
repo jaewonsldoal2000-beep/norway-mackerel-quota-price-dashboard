@@ -212,7 +212,7 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="sub">North-East Atlantic mackerel · <span class="mono">mac.27.nea</span></div>
       <h1>노르웨이 고등어 쿼터 · 가격 리스크</h1>
     </div>
-    <div class="meta"><span class="pill" id="live" aria-live="polite"></span><span class="meta" id="meta"></span></div>
+    <div class="meta"><span class="pill" id="fxpill" title="노르웨이 중앙은행 일일 공식 환율. 과거 월별 값은 그 달 평균 환율로 환산"></span><span class="pill" id="live" aria-live="polite"></span><span class="meta" id="meta"></span></div>
   </header>
 
   <section class="panel" id="lock" hidden aria-labelledby="h-lock">
@@ -278,7 +278,7 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
         <div class="sub">빠른 계산 (이 브라우저에만 저장, 서버로 전송 안 됨)</div>
         <label>원산지·사이즈 <select id="c-q"></select></label>
         <label>수량 kg <input id="c-qty" type="number" inputmode="numeric" min="0" step="100" value="20000"></label>
-        <label>매입 단가 원/kg <input id="c-cost" type="number" inputmode="numeric" min="0" step="10" placeholder="예: 7900"></label>
+        <label>매입 단가 $/kg <input id="c-cost" type="number" inputmode="decimal" min="0" step="0.01" placeholder="예: 5.90"></label>
         <label>목표 마진 % <input id="c-tgt" type="number" inputmode="decimal" min="0" step="1" value="10"></label>
         <div class="calcout" id="c-out" aria-live="polite"></div>
       </form>
@@ -419,6 +419,39 @@ function ko(s) {
   return s;
 }
 
+/* ---------------- money: everything shown in US$ ----------------
+   Current values use the latest official daily rate (Norges Bank, fetched live by the browser, fallback = the
+   rate the Mac saw). Historical monthly values use that month's average rate, so history is not distorted. */
+let FXLIVE = null;
+function fxNow() { return FXLIVE || (current && current.fx_now) || null; }
+function fxMonth(period) {
+  const u = current && current.fx[`${period}|USD`], k = current && current.fx[`${period}|KRW`];
+  return u && k ? { nok_per_usd: u, nok_per_krw: k } : null;
+}
+function nok2usd(v, period) { const r = (period && fxMonth(period)) || fxNow(); return v == null || !r ? null : v / r.nok_per_usd; }
+function krw2usd(v, period) { const r = (period && fxMonth(period)) || fxNow(); return v == null || !r ? null : v * r.nok_per_krw / r.nok_per_usd; }
+const usd = (v, d = 2) => v == null || isNaN(v) ? "—" : (v < 0 ? "−$" : "$") + fmt(Math.abs(v), d);
+const usdkg = (v, d = 2) => usd(v, d) + "/kg";
+async function fetchFx() {
+  try {
+    const r = await fetch("https://data.norges-bank.no/api/data/EXR/B.USD+KRW.NOK.SP?format=csv&lastNObservations=1&locale=en&bom=exclude", { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const lines = (await r.text()).trim().split(/\r?\n/), hdr = lines[0].split(";"), o = {};
+    for (const l of lines.slice(1)) { const f = Object.fromEntries(l.split(";").map((v, i) => [hdr[i], v])); o[f.BASE_CUR] = { v: +f.OBS_VALUE / Math.pow(10, +f.UNIT_MULT), d: f.TIME_PERIOD }; }
+    if (!o.USD || !o.KRW) throw new Error("missing");
+    const nf = { date: o.USD.d, nok_per_usd: o.USD.v, nok_per_krw: o.KRW.v, source: "Norges Bank 일일 공식 환율 (브라우저 실시간 조회)" };
+    const changed = !FXLIVE || FXLIVE.date !== nf.date || FXLIVE.nok_per_usd !== nf.nok_per_usd || FXLIVE.nok_per_krw !== nf.nok_per_krw;
+    FXLIVE = nf;
+    if (changed && current) render(current);
+  } catch (e) { /* keep the rate shipped with the data */ }
+  fxPill();
+}
+function fxPill() {
+  const el = document.getElementById("fxpill"); const f = fxNow(); if (!el) return;
+  el.innerHTML = f ? `<span class="dot" style="background:${FXLIVE ? "var(--good)" : "var(--warn)"}"></span>모든 금액 US$ · 1 USD = ${fmt(f.nok_per_usd / f.nok_per_krw, 0)}원 · ${fmt(f.nok_per_usd, 2)} NOK (${esc(f.date)}${FXLIVE ? "" : ", 저장값"})` : "";
+}
+setInterval(fetchFx, 30 * 60 * 1000);
+
 /* ---------------- tabs ---------------- */
 const TABS = ["buy", "trade", "season", "forecast", "evidence"];
 function showTab(id) {
@@ -451,7 +484,7 @@ function changesSince(D) {
   now.sig.forEach((s, i) => { if (prev.sig && prev.sig[i] !== s) out.push(`${names[i]} 신호 <b>${esc(prev.sig[i])} → ${esc(s)}</b>`); });
   const num = (label, a, b, unit, d = 0) => { if (a != null && b != null && Math.abs(a - b) > (d ? 0.005 : 0.5)) out.push(`${label} <b>${fmt(a, d)} → ${fmt(b, d)}${unit}</b>`); };
   num("2027 TAC", prev.tac, now.tac, " t"); num("노르웨이 전망", prev.nor, now.nor, " t"); num("노르웨이 잔여", prev.rem, now.rem, " t");
-  num("주간 원어가", prev.wk, now.wk, " NOK/kg", 2); num("TAC 신뢰도", prev.conf, now.conf, "");
+  num("주간 원어가 ($/kg)", nok2usd(prev.wk), nok2usd(now.wk), "", 2); num("TAC 신뢰도", prev.conf, now.conf, "");
   Object.entries(now.risks).forEach(([k, v]) => { if (prev.risks && prev.risks[k] && prev.risks[k] !== v) out.push(`${esc(k)} <b>${prev.risks[k]} → ${v}</b>`); });
   const since = kst(prev.at).slice(5, 16);
   return out.length ? `<span class="chg">${since} 이후</span>` + out.map((x) => `<span class="chg">${x}</span>`).join("")
@@ -536,15 +569,15 @@ function renderRisk(D, R) {
   ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
   const S0 = R.season, wk = S0.week || {}, ytd = S0.ytd || {}, fx = R.fx;
   $("weekly").innerHTML = [
-    ["지난주 원어 가격", wk.avg_nok_kg != null ? fmt(wk.avg_nok_kg, 2) : "—", "NOK/kg", wk.period_start ? `${wk.period_start.slice(5)}~${(wk.period_end || "").slice(5)} · ${fmt(wk.qty_t)} t · 작년 같은 주 ${fmt(wk.ly_avg_nok_kg, 2)}` : ""],
-    ["올해 누적 평균", ytd.avg_nok_kg != null ? fmt(ytd.avg_nok_kg, 2) : "—", "NOK/kg", ytd.qty_t ? `${fmt(ytd.qty_t)} t · 작년 ${fmt(ytd.ly_avg_nok_kg, 2)}` : ""],
-    ["원화 환산 (지난주)", wk.avg_nok_kg != null && fx ? fmt(wk.avg_nok_kg * fx.krw_per_nok_end, 0) : "—", "원/kg", fx ? `${fx.end} 월평균 ${fmt(fx.krw_per_nok_end, 1)} 원/NOK` : ""],
-    ["원/NOK 3개월", fx ? (fx.change > 0 ? "+" : "") + fmt(fx.change * 100, 1) : "—", "%", fx ? (fx.change > 0 ? "크로네 강세 → 수입가 ↑" : "크로네 약세 → 수입가 ↓ (유리)") : ""],
+    ["지난주 원어 가격", wk.avg_nok_kg != null ? usd(nok2usd(wk.avg_nok_kg)) : "—", "/kg", wk.period_start ? `${wk.period_start.slice(5)}~${(wk.period_end || "").slice(5)} · ${fmt(wk.qty_t)} t · 작년 같은 주 ${usdkg(nok2usd(wk.ly_avg_nok_kg))}` : ""],
+    ["올해 누적 평균", ytd.avg_nok_kg != null ? usd(nok2usd(ytd.avg_nok_kg)) : "—", "/kg", ytd.qty_t ? `${fmt(ytd.qty_t)} t · 작년 ${usdkg(nok2usd(ytd.ly_avg_nok_kg))} (같은 환율)` : ""],
+    ["환율 (오늘)", fxNow() ? fmt(fxNow().nok_per_usd / fxNow().nok_per_krw, 0) : "—", "원/USD", fxNow() ? `1 USD = ${fmt(fxNow().nok_per_usd, 2)} NOK · ${fxNow().date}` : ""],
+    ["원/달러 3개월", fx ? (fx.change > 0 ? "+" : "") + fmt(fx.change * 100, 1) : "—", "%", fx ? (fx.change > 0 ? "달러 강세 → 수입가 ↑" : "달러 약세 → 수입가 ↓ (유리)") : ""],
   ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
   const W = S0.weeks || [];
-  $("weeklist").innerHTML = W.length > 1 ? `<div class="scroll"><table><thead><tr><th>주</th><th class="r">물량 t</th><th class="r">평균 NOK/kg</th><th class="r">작년 같은 주</th></tr></thead><tbody>${W.slice().reverse().map((w) => `<tr><td class="mono">${w.period_start}</td><td class="r mono">${fmt(w.qty_t)}</td><td class="r mono">${fmt(w.avg_nok_kg, 2)}</td><td class="r mono">${fmt(w.ly_avg_nok_kg, 2)}</td></tr>`).join("")}</tbody></table></div>`
+  $("weeklist").innerHTML = W.length > 1 ? `<div class="scroll"><table><thead><tr><th>주</th><th class="r">물량 t</th><th class="r">평균 $/kg</th><th class="r">작년 같은 주 $/kg</th></tr></thead><tbody>${W.slice().reverse().map((w) => `<tr><td class="mono">${w.period_start}</td><td class="r mono">${fmt(w.qty_t)}</td><td class="r mono">${usd(nok2usd(w.avg_nok_kg))}</td><td class="r mono">${usd(nok2usd(w.ly_avg_nok_kg))}</td></tr>`).join("")}</tbody></table></div>`
     : `<div class="sub">주간 가격은 2026-10-07부터 매주 쌓입니다 (Sildelaget 매주 월요일 갱신).</div>`;
-  const fv = (f) => f.v == null ? "" : (f.unit === "%" ? fmt(f.v, 0) + "%" : f.unit === "t" ? fmt(f.v) + " t" : f.unit === "NOK/kg" ? fmt(f.v, 2) + " NOK/kg" : f.unit === "원/NOK" ? fmt(f.v, 1) + " 원/NOK" : fmt(f.v) + (f.unit || ""));
+  const fv = (f) => f.v == null ? "" : (f.unit === "%" ? fmt(f.v, 0) + "%" : f.unit === "t" ? fmt(f.v) + " t" : f.unit === "NOK/kg" ? usdkg(nok2usd(f.v, f.period)) : f.unit === "KRW/USD" ? "1 USD = " + fmt(f.v, 0) + "원" : fmt(f.v) + (f.unit || ""));
   const arrow = { up: "▲", down: "▼", wait: "◆", flat: "●" };
   $("horizons").innerHTML = R.horizons.map((h) => `<article class="hz">
       <div class="when">${esc(h.period)}</div><h3>${esc(h.title)}</h3>
@@ -585,7 +618,7 @@ function renderTrading(D) {
   const cls = { BUY: "up", HOLD: "up", WAIT: "down", SELL: "down", NEUTRAL: "flat" };
   const posTxt = `최근 5년(추세 보정) 중 상위 ${fmt(100 - f.pos * 100, 0)}% 가격`;
   const supTxt = T.supply.dir > 0 ? "공급 증가 방향" : T.supply.dir < 0 ? "공급 감소 방향" : "공급 변화 작음";
-  const why = [`가격 위치: ${posTxt} (수입가 ${fmt(T.price)}원/kg, ${T.period})`, `공급: ${supTxt} (${esc(T.supply.basis)})`,
+  const why = [`가격 위치: ${posTxt} (한국 수입가 ${usdkg(krw2usd(T.price, T.period))}, ${T.period})`, `공급: ${supTxt} (${esc(T.supply.basis)})`,
     `최근 3개월 가격 흐름: ${f.mom >= 0 ? "+" : ""}${fmt(f.mom * 100, 1)}%`];
   const card = (title, sig, ko, desc, rule, st) => `<article class="ts"><div class="when sub">${title}</div><div class="big ${cls[sig]}">${esc(ko)}</div>
       <div>${desc}</div><div class="posbar" title="가격 위치 (왼쪽 쌈 · 오른쪽 비쌈)"><i style="left:calc(${(f.pos * 100).toFixed(1)}% - 1px)"></i></div>
@@ -604,23 +637,23 @@ function renderTrading(D) {
     card("보유 재고 판매", T.sell, T.sell_ko, sellDesc, `가격 위치 ≥ ${th.sell_pos * 100}% & (공급 증가 또는 가격 하락 전환) → 판매 유리 · ≤ ${th.hold_pos * 100}% & 공급 감소 → 보유 유리`, bt[T.sell === "NEUTRAL" ? "x" : T.sell]);
   // Korea price chart
   const toX = (p) => +p.slice(0, 4) + (+p.slice(5, 7) - 1) / 12;
-  const ser = T.series.map(([p, v]) => ({ x: toX(p), y: v }));
-  const qpts = (T.latest_quotes || []).filter((q) => q.origin === "Norway").map((q) => ({ x: toX(q.date), y: q.krw_per_kg }));
-  const cifPt = T.cif_krw ? [{ x: toX(T.no_cif.period), y: T.cif_krw }] : [];
+  const ser = T.series.map(([p, v]) => ({ x: toX(p), y: krw2usd(v, p) })).filter((d) => d.y != null);
+  const qpts = (T.latest_quotes || []).filter((q) => q.origin === "Norway").map((q) => ({ x: toX(q.date), y: krw2usd(q.krw_per_kg) }));
+  const cifPt = T.no_cif ? [{ x: toX(T.no_cif.period), y: T.no_cif.usd_per_kg }] : [];
   const vals = ser.map((d) => d.y).concat(qpts.map((d) => d.y));
-  const y1 = Math.ceil(Math.max(...vals) * 1.1 / 1000) * 1000;
+  const y1 = Math.ceil(Math.max(...vals) * 1.1);
   const x0 = ser[0].x, x1 = Math.max(ser[ser.length - 1].x, ...qpts.map((d) => d.x)) + 0.15;
   const yrs = []; for (let y = Math.ceil(x0); y <= x1; y++) yrs.push(y);
-  chart($("krc"), { label: "한국 수입가격", h: 280, x0, x1, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: (v) => fmt(v), xt: yrs, xf: String,
-    tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; }, vf: (v) => fmt(v) + " 원/kg",
-    series: [{ name: "수입가격 공개 (냉동 고등어, 전체 원산지)", color: css("--forecast"), r: 2.5, data: ser },
-             { name: "노르웨이산 CIF (원화 환산)", color: css("--catch"), r: 5, data: cifPt },
+  chart($("krc"), { label: "한국 수입가격", h: 280, x0, x1, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: (v) => "$" + fmt(v, 0), xt: yrs, xf: String,
+    tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; }, vf: (v) => usdkg(v),
+    series: [{ name: "한국 수입가격 공개 (냉동 고등어, 전체 원산지)", color: css("--forecast"), r: 2.5, data: ser },
+             { name: "노르웨이산 CIF (관세청)", color: css("--catch"), r: 5, data: cifPt },
              { name: "국내 시세 노르웨이 (업계)", color: css("--advice"), r: 5, data: qpts }] });
-  legend("kr-legend", [["관세청 수입가격 공개 (원/kg)", css("--forecast")], ["노르웨이산 CIF 원화 환산 (최근월)", css("--catch")], ["국내 시세 노르웨이 (업계 보고)", css("--advice")]]);
-  $("quotes").innerHTML = `<thead><tr><th>원산지</th><th>사이즈</th><th class="r">박스</th><th class="r">원/kg</th><th class="r">수입신고가 대비</th><th>메모</th></tr></thead><tbody>` +
+  legend("kr-legend", [["관세청 수입가격 공개 ($/kg, 그 달 환율)", css("--forecast")], ["노르웨이산 CIF ($/kg, 최근월)", css("--catch")], ["국내 시세 노르웨이 (업계 보고)", css("--advice")]]);
+  $("quotes").innerHTML = `<thead><tr><th>원산지</th><th>사이즈</th><th class="r">박스</th><th class="r">$/kg</th><th class="r">수입신고가 대비</th><th>메모</th></tr></thead><tbody>` +
     T.spreads.map((s) => { const q = T.latest_quotes.find((x) => x.origin === s.origin && x.size === s.size);
-      return `<tr><td>${esc({ Norway: "노르웨이", Netherlands: "네덜란드", UK: "영국" }[s.origin] || s.origin)}</td><td class="mono">${esc(s.size)}</td><td class="r mono">${fmt(q.box_kg)}kg · ${fmt(q.price_krw_box)}원</td><td class="r mono"><b>${fmt(s.quote)}</b></td><td class="r mono">${s.vs_import >= 0 ? "+" : ""}${fmt(s.vs_import)} (${pct(s.vs_import_pct, 0)})</td><td class="src">${esc(q.price_note)}</td></tr>`; }).join("") +
-    `</tbody><tfoot><tr><td colspan="6" class="src">국내 시세: ${esc(T.quote_date || "")} 업계 시세 보고 (수기 입력) ${tag("Observed")} · 수입신고가: 관세청 ${esc(T.period)} ${fmt(T.price)}원/kg ${tag("Official")} · 차이에는 관세·운송·보관·마진이 섞여 있음 (관세율 미확인)</td></tr></tfoot>`;
+      return `<tr><td>${esc({ Norway: "노르웨이", Netherlands: "네덜란드", UK: "영국" }[s.origin] || s.origin)}</td><td class="mono">${esc(s.size)}</td><td class="r mono">${fmt(q.box_kg)}kg · ${usd(krw2usd(q.price_krw_box), 0)}</td><td class="r mono"><b>${usd(krw2usd(s.quote))}</b></td><td class="r mono">${s.vs_import >= 0 ? "+" : ""}${usd(krw2usd(s.vs_import))} (${pct(s.vs_import_pct, 0)})</td><td class="src">${esc(String(q.price_note || "").replace(/\s*\([\d,]+원\/kg[^)]*\)/g, ""))}</td></tr>`; }).join("") +
+    `</tbody><tfoot><tr><td colspan="6" class="src">국내 시세: ${esc(T.quote_date || "")} 업계 시세 보고 (수기 입력) ${tag("Observed")} · 수입신고가: 관세청 ${esc(T.period)} ${usdkg(krw2usd(T.price, T.period))} (그 달 환율) ${tag("Official")} · 국내 시세는 오늘 환율로 환산 · 차이에는 관세·운송·보관·마진이 섞여 있음 (관세율 미확인)</td></tr></tfoot>`;
   $("notes").innerHTML = T.notes.length ? `<div class="sub" style="margin-top:8px">시장 메모 (${esc(T.notes[0].date)})</div><ul class="sub" style="margin:4px 0 0;padding-left:18px">${T.notes.filter((n) => n.date === T.notes[0].date).map((n) => `<li>${esc(n.note)}</li>`).join("")}</ul>` : "";
   // backtest table
   $("btt-sub").textContent = `${bt.first} ~ ${bt.last} · ${bt.n}개월 · 6개월 뒤 가격으로 채점`;
@@ -631,21 +664,22 @@ function renderTrading(D) {
   // inventory
   const lots = T.lots || [];
   $("inv-sub").textContent = lots.length ? `확정 재고 ${lots.length}건` : "아직 입력된 확정 재고 없음";
-  $("inv").innerHTML = lots.length ? `<div class="scroll"><table><thead><tr><th>로트</th><th>원산지·사이즈</th><th class="r">수량 kg</th><th class="r">매입 원/kg</th><th class="r">현재 시세</th><th class="r">마진</th><th class="r">평가 차익</th></tr></thead><tbody>${lots.map((l) => `<tr><td class="mono">${esc(l.lot_id)}</td><td>${esc(l.origin)} ${esc(l.size)}</td><td class="r mono">${fmt(+l.qty_kg)}</td><td class="r mono">${fmt(+l.cost_krw_per_kg)}</td><td class="r mono">${fmt(l.market)}</td><td class="r mono">${l.margin == null ? "—" : pct(l.margin, 1)}</td><td class="r mono">${l.value_gain == null ? "—" : fmt(l.value_gain) + "원"}</td></tr>`).join("")}</tbody></table></div>`
+  $("inv").innerHTML = lots.length ? `<div class="scroll"><table><thead><tr><th>로트</th><th>원산지·사이즈</th><th class="r">수량 kg</th><th class="r">매입 $/kg</th><th class="r">현재 시세</th><th class="r">마진</th><th class="r">평가 차익</th></tr></thead><tbody>${lots.map((l) => `<tr><td class="mono">${esc(l.lot_id)}</td><td>${esc(l.origin)} ${esc(l.size)}</td><td class="r mono">${fmt(+l.qty_kg)}</td><td class="r mono">${usd(krw2usd(+l.cost_krw_per_kg))}</td><td class="r mono">${usd(krw2usd(l.market))}</td><td class="r mono">${l.margin == null ? "—" : pct(l.margin, 1)}</td><td class="r mono">${l.value_gain == null ? "—" : usd(krw2usd(l.value_gain), 0)}</td></tr>`).join("")}</tbody></table></div>`
     : `<div class="empty">재고가 확인되면 원산지·사이즈·수량·매입 단가·매입일을 알려 주시거나 맥의 <span class="mono">sources/inventory.csv</span>에 넣고 status를 <span class="mono">confirmed</span>로 표시하면, 로트별 마진과 판매 신호가 여기에 계산됩니다. 그 전에는 아래 계산기로 바로 확인할 수 있습니다.</div>`;
   // calculator (client-side only)
-  const opts = T.latest_quotes.map((q, i) => `<option value="${i}">${esc(q.origin)} ${esc(q.size)} · ${fmt(q.krw_per_kg)}원/kg</option>`).join("");
+  const opts = T.latest_quotes.map((q, i) => `<option value="${i}">${esc(q.origin)} ${esc(q.size)} · ${usdkg(krw2usd(q.krw_per_kg))}</option>`).join("");
   $("c-q").innerHTML = opts;
-  const KEY = "mk-calc-v1";
+  const KEY = "mk-calc-usd-v1";
   try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); if (v) { $("c-q").value = v.q; $("c-qty").value = v.qty; $("c-cost").value = v.cost; $("c-tgt").value = v.tgt; } } catch (e) {}
   const calc = () => {
     const q = T.latest_quotes[+$("c-q").value || 0], qty = +$("c-qty").value || 0, cost = +$("c-cost").value || 0, tgt = (+$("c-tgt").value || 0) / 100;
     try { localStorage.setItem(KEY, JSON.stringify({ q: $("c-q").value, qty, cost, tgt: tgt * 100 })); } catch (e) {}
     if (!cost) { $("c-out").innerHTML = `<span class="sub">매입 단가를 넣으면 현재 시세 기준 마진과 판단이 나옵니다.</span>`; return; }
-    const m = q.krw_per_kg / cost - 1, gain = (q.krw_per_kg - cost) * qty, tgtPrice = cost * (1 + tgt);
+    const mk = krw2usd(q.krw_per_kg);
+    const m = mk / cost - 1, gain = (mk - cost) * qty, tgtPrice = cost * (1 + tgt);
     const verdict = m >= tgt && T.sell === "SELL" ? `<b style="color:var(--good)">판매 유리</b> — 목표 마진 달성 + 판매 신호` :
-      m >= tgt ? `<b>목표 마진 달성</b> — 판매 신호는 '${esc(T.sell_ko)}'` : `<b style="color:var(--warn)">목표 미달</b> — 목표 판매가 ${fmt(tgtPrice)}원/kg (지금보다 ${fmt(tgtPrice - q.krw_per_kg)}원 높아야 함)`;
-    $("c-out").innerHTML = `현재 시세 ${fmt(q.krw_per_kg)}원/kg 기준 마진 <b class="mono">${pct(m, 1)}</b> · 평가 차익 <b class="mono">${fmt(gain)}원</b> · ${verdict}<div class="src">관세·운송·보관비는 매입 단가에 포함해 넣으십시오. 입력값은 이 브라우저에만 저장됩니다.</div>`;
+      m >= tgt ? `<b>목표 마진 달성</b> — 판매 신호는 '${esc(T.sell_ko)}'` : `<b style="color:var(--warn)">목표 미달</b> — 목표 판매가 ${usdkg(tgtPrice)} (지금보다 ${usd(tgtPrice - mk)} 높아야 함)`;
+    $("c-out").innerHTML = `현재 시세 ${usdkg(mk)} 기준 마진 <b class="mono">${pct(m, 1)}</b> · 평가 차익 <b class="mono">${usd(gain, 0)}</b> · ${verdict}<div class="src">국내 시세(원화)는 오늘 환율로 달러 환산. 관세·운송·보관비는 매입 단가에 포함해 넣으십시오. 입력값은 이 브라우저에만 저장됩니다.</div>`;
   };
   $("calc").oninput = calc; $("calc").onsubmit = (e) => { e.preventDefault(); calc(); };
   calc();
@@ -889,44 +923,37 @@ function checksTable() {
     <dt>2028 권고 방향</dt><dd>ICES 표 기준 어떤 시나리오든 SSB2027 ≈ 3.11–3.13M t (Btrigger 4.12M t 아래) → 2028년도 감액 규칙(F = FMSY × SSB/Btrigger) 적용이 유지될 가능성이 높음. 2026년 가입량(2024년급)은 IESSNS 2세 지수 하나에만 근거해 <b>미확정</b>.</dd></dl>`;
 })();
 
-/* ---------------- prices ---------------- */
+/* ---------------- prices (US$, each month at that month's average rate) ---------------- */
 (function () {
   const pm = D.price_model;
-  let cur = "NOK";
-  const curs = ["NOK", "EUR", "USD", "KRW"];
-  $("cur").innerHTML = curs.map((c) => `<button type="button" aria-pressed="${c === cur}" data-c="${c}">${c}</button>`).join("");
-  const conv = (period, nok) => { if (cur === "NOK") return nok; const r = D.fx[`${period}|${cur}`]; return r ? nok / r : null; };
-  const unit = () => cur === "KRW" ? "원/kg" : cur + "/kg";
-  const draw = () => {
-    const all = D.prices.filter((p) => p.market === "ALL"), kr = D.prices.filter((p) => p.market === "KR");
-    const toX = (p) => +p.slice(0, 4) + (+p.slice(5) - 1) / 12;
-    const sA = all.map((p) => ({ x: toX(p.period), y: conv(p.period, p.nok_per_kg) }));
-    const sK = kr.filter((p) => p.volume_t >= 50).map((p) => ({ x: toX(p.period), y: conv(p.period, p.nok_per_kg) }));
-    const ys = sA.concat(sK).map((d) => d.y).filter((v) => v != null);
-    const y1 = Math.max(...ys) * 1.1;
-    const dg = cur === "KRW" ? 0 : 1;
-    chart($("pxc"), { label: "수출단가", h: 280, x0: 2019, x1: 2026.75, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: (v) => fmt(v, cur === "KRW" ? 0 : 0),
-      xt: [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026], xf: String,
-      tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; },
-      vf: (v) => fmt(v, dg) + " " + unit(),
-      series: [{ name: "전체 수출", color: css("--forecast"), r: 2.5, data: sA }, { name: "한국행 (월 50t 이상)", color: css("--advice"), r: 2.5, data: sK }] });
-  };
-  $("cur").onclick = ((e) => { const b = e.target.closest("button"); if (!b) return; cur = b.dataset.c; [...$("cur").children].forEach((x) => x.setAttribute("aria-pressed", x.dataset.c === cur)); draw(); });
-  draw();
-  legend("px-legend", [["노르웨이 냉동 고등어 전체 수출 단가", css("--forecast")], ["한국행 수출 단가", css("--advice")]]);
-  const last = D.prices.filter((p) => p.market === "ALL").slice(-1)[0];
+  $("cur").hidden = true;
+  const all = D.prices.filter((p) => p.market === "ALL"), kr = D.prices.filter((p) => p.market === "KR");
+  const toX = (p) => +p.slice(0, 4) + (+p.slice(5) - 1) / 12;
+  const sA = all.map((p) => ({ x: toX(p.period), y: nok2usd(p.nok_per_kg, p.period) })).filter((d) => d.y != null);
+  const sK = kr.filter((p) => p.volume_t >= 50).map((p) => ({ x: toX(p.period), y: nok2usd(p.nok_per_kg, p.period) })).filter((d) => d.y != null);
+  const y1 = Math.max(...sA.concat(sK).map((d) => d.y)) * 1.1;
+  chart($("pxc"), { label: "수출단가", h: 280, x0: 2019, x1: 2026.75, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: (v) => "$" + fmt(v, v < 10 && v % 1 ? 1 : 0),
+    xt: [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026], xf: String,
+    tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; },
+    vf: (v) => usdkg(v),
+    series: [{ name: "전체 수출", color: css("--forecast"), r: 2.5, data: sA }, { name: "한국행 (월 50t 이상)", color: css("--advice"), r: 2.5, data: sK }] });
+  legend("px-legend", [["노르웨이 냉동 고등어 전체 수출 단가 ($/kg, 그 달 환율)", css("--forecast")], ["한국행 수출 단가", css("--advice")]]);
+  const last = all.slice(-1)[0];
+  const seasonRate = (y) => { const r = []; for (let m = 9; m <= 20; m++) { const yy = y + Math.floor((m - 1) / 12), mm = ((m - 1) % 12) + 1; const v = D.fx[`${yy}-${String(mm).padStart(2, "0")}|USD`]; if (v) r.push(v); } return r.length ? r.reduce((a, b) => a + b) / r.length : null; };
+  const sUSD = (y, nok) => { const r = seasonRate(+y); return r ? nok / r : null; };
   const seasons = Object.entries(pm.seasons).slice(-4);
   const f26 = pm.forecasts[D.target - 1], f27 = pm.forecasts[D.target];
+  const m = (f) => f ? `${usdkg(nok2usd(f.nok_per_kg))} (80%: ${usd(nok2usd(f.lo80))}–${usd(nok2usd(f.hi80))})` : "—";
   $("pxm").innerHTML = `<div class="grid2"><dl class="kv">
-      <dt>최신 (SSB 08799)</dt><dd class="mono">${last.period} · ${fmt(last.nok_per_kg, 2)} NOK/kg · ${fmt(last.volume_t)} t ${tag("Official")}</dd>
-      <dt>시즌 평균 (9월–8월)</dt><dd class="mono">${seasons.map(([s, v]) => `${s}/${String(+s + 1).slice(2)}: ${fmt(v.nok_per_kg, 1)}`).join(" · ")}</dd>
-      <dt>공급 탄력성</dt><dd class="mono">${fmt(pm.beta.elasticity, 2)} (R² ${fmt(pm.r2, 2)}, n=${pm.n}) · 연 추세 +${fmt(pm.beta.trend * 100, 1)}%</dd>
-      <dt>사이즈별 가격</dt><dd>공식 공개 자료 없음 (SSB·노르웨이 수출위원회 모두 사이즈 구분 미제공). Sildelaget 경매 데이터 접근 불가 → 표시하지 않음.</dd></dl>
+      <dt>최신 (노르웨이 통계청)</dt><dd class="mono">${last.period} · ${usdkg(nok2usd(last.nok_per_kg, last.period))} · ${fmt(last.volume_t)} t ${tag("Official")}</dd>
+      <dt>시즌 평균 (9월–8월)</dt><dd class="mono">${seasons.map(([y, v]) => `${y}/${String(+y + 1).slice(2)}: ${usd(sUSD(y, v.nok_per_kg))}`).join(" · ")}</dd>
+      <dt>공급 탄력성</dt><dd class="mono">${fmt(pm.beta.elasticity, 2)} (R² ${fmt(pm.r2, 2)}, n=${pm.n}) · 연 추세 +${fmt(pm.beta.trend * 100, 1)}% (크로네 기준 추정)</dd>
+      <dt>사이즈별 가격</dt><dd>노르웨이 공식 자료에는 사이즈 구분이 없음 → 국내 사이즈별 시세는 '매매 타이밍' 탭의 업계 시세 참고.</dd></dl>
     <dl class="kv">
-      <dt>${D.target - 1}/${String(D.target).slice(2)} 시즌 모형값</dt><dd class="mono">${f26 ? `${fmt(f26.nok_per_kg, 1)} NOK/kg (80%: ${fmt(f26.lo80, 1)}–${fmt(f26.hi80, 1)})` : "—"} ${tag("Estimated")}</dd>
-      <dt>${D.target}/${String(D.target + 1).slice(2)} 시즌 모형값</dt><dd class="mono">${f27 ? `${fmt(f27.nok_per_kg, 1)} NOK/kg (80%: ${fmt(f27.lo80, 1)}–${fmt(f27.hi80, 1)})` : "—"} ${tag("Estimated")}</dd>
-      <dt>Market-implied</dt><dd>${pm.market_implied_supply ? `시장 가격이 시사하는 공급량 ${t(pm.market_implied_supply)} (Market-implied estimate)` : `2026/27 시즌 가격(9월분)은 SSB 10월 중순 공개 예정 → 공개 후 역산`}</dd>
-      <dt>주의</dt><dd>탐색용 모형. 2025/26 시즌 실제 46.8은 모형값 33.7보다 39% 높음 — 시장이 2026 쿼터 감축을 미리 반영한 것으로 보임. 가격 결정에 단독 사용 금지.</dd></dl></div>`;
+      <dt>${D.target - 1}/${String(D.target).slice(2)} 시즌 모형값</dt><dd class="mono">${m(f26)} ${tag("Estimated")}</dd>
+      <dt>${D.target}/${String(D.target + 1).slice(2)} 시즌 모형값</dt><dd class="mono">${m(f27)} ${tag("Estimated")}</dd>
+      <dt>Market-implied</dt><dd>${pm.market_implied_supply ? `시장 가격이 시사하는 공급량 ${t(pm.market_implied_supply)} (Market-implied estimate)` : `2026/27 시즌 가격(9월분)은 노르웨이 통계청 10월 중순 공개 예정 → 공개 후 역산`}</dd>
+      <dt>주의</dt><dd>탐색용 모형(모형값은 오늘 환율로 환산). 2025/26 시즌 실제 가격은 모형값보다 39% 높음 — 시장이 2026 쿼터 감축을 미리 반영한 것으로 보임. 가격 결정에 단독 사용 금지.</dd></dl></div>`;
 })();
 
 /* ---------------- timeline ---------------- */
@@ -995,6 +1022,7 @@ function checksTable() {
 })();
 renderRisk(D, R);
 renderTrading(D);
+fxPill();
 } // end render
 
 /* ---------------- live loading ---------------- */
@@ -1078,6 +1106,7 @@ async function load() {
 function forget() { try { localStorage.removeItem(KEY_STORE); } catch (e) {} cryptoKey = null; current = null; lock("잠갔습니다."); }
 if (D0) { document.getElementById("live").hidden = true; current = D0; render(D0); }
 else { load(); setInterval(load, 5 * 60 * 1000); document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); }); }
+fetchFx();
 try { matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => current && render(current)); } catch (e) {}
 new MutationObserver(() => current && render(current)).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 </script>
