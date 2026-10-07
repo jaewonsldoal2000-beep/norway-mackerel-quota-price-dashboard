@@ -148,6 +148,22 @@ details.method p, details.method li { color: var(--ink-2); max-width: 80ch; }
 details.panel > summary.sumh { cursor: pointer; font: 600 13px var(--f-body); letter-spacing: .06em; color: var(--ink-2); }
 abbr[title] { text-decoration: underline dotted; cursor: help; }
 @media (max-width: 620px) { .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* trading */
+.tradesig { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.ts { padding: 18px; display: grid; gap: 8px; align-content: start; border-right: 1px solid var(--line); min-width: 0; }
+.ts:last-child { border-right: 0; }
+.ts .big { font: 700 40px/1 var(--f-display); }
+.ts .big.up { color: var(--good); } .ts .big.down { color: var(--bad); } .ts .big.flat { color: var(--ink-2); }
+.ts ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-2); display: grid; gap: 3px; }
+.posbar { position: relative; height: 10px; border-radius: 5px; background: linear-gradient(90deg, color-mix(in srgb, var(--good) 40%, transparent), var(--surface-2) 50%, color-mix(in srgb, var(--bad) 40%, transparent)); }
+.posbar i { position: absolute; top: -4px; width: 3px; height: 18px; background: var(--ink); border-radius: 2px; }
+.calc { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; align-items: end; border-top: 1px dashed var(--line); padding-top: 12px; }
+.calc > .sub, .calc .calcout { grid-column: 1 / -1; }
+.calc label { display: grid; gap: 4px; font-size: 12px; color: var(--ink-2); }
+.calc input, .calc select { font: 15px var(--f-body); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); min-width: 0; }
+.calc input:focus-visible, .calc select:focus-visible { outline: 2px solid var(--forecast); }
+.calcout { font-size: 14px; }
+@media (max-width: 760px) { .tradesig { grid-template-columns: 1fr; } .ts { border-right: 0; border-bottom: 1px solid var(--line); } .calc { grid-template-columns: 1fr 1fr; } }
 /* buyer risk layer */
 .horizons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
 .hz { padding: 18px; display: grid; gap: 10px; align-content: start; border-right: 1px solid var(--line); min-width: 0; }
@@ -214,6 +230,7 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
 
   <nav class="tabs" role="tablist" aria-label="화면">
     <button type="button" role="tab" id="t-buy" data-tab="buy" aria-controls="tab-buy">구매 판단</button>
+    <button type="button" role="tab" id="t-trade" data-tab="trade" aria-controls="tab-trade">매매 타이밍</button>
     <button type="button" role="tab" id="t-season" data-tab="season" aria-controls="tab-season">시즌 · 가격</button>
     <button type="button" role="tab" id="t-forecast" data-tab="forecast" aria-controls="tab-forecast">2027 전망</button>
     <button type="button" role="tab" id="t-evidence" data-tab="evidence" aria-controls="tab-evidence">근거</button>
@@ -238,6 +255,34 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <summary class="sumh">질문 ①–⑩ 에 대한 현재 답 보기</summary>
       <ol class="brief" id="brief"></ol>
     </details>
+  </div>
+
+  <div class="tab" id="tab-trade" role="tabpanel" aria-labelledby="t-trade" hidden>
+    <section class="tradesig" id="tradesig" aria-label="매매 신호"></section>
+    <section class="panel" aria-labelledby="h-kr">
+      <div class="head"><h2 id="h-kr">한국 수입 가격 · 국내 시세</h2><span class="sub">관세청 수입가격 공개 · 업계 시세</span></div>
+      <div class="legend" id="kr-legend"></div>
+      <div class="chart" id="krc"></div>
+      <div class="scroll"><table id="quotes"></table></div>
+      <div id="notes"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-btt">
+      <div class="head"><h2 id="h-btt">이 규칙이 과거에 맞았나</h2><span class="sub" id="btt-sub"></span></div>
+      <div class="scroll"><table id="btt"></table></div>
+      <p class="sub" id="btt-note"></p>
+    </section>
+    <section class="panel" aria-labelledby="h-inv">
+      <div class="head"><h2 id="h-inv">보유 재고</h2><span class="sub" id="inv-sub"></span></div>
+      <div id="inv"></div>
+      <form class="calc" id="calc" autocomplete="off">
+        <div class="sub">빠른 계산 (이 브라우저에만 저장, 서버로 전송 안 됨)</div>
+        <label>원산지·사이즈 <select id="c-q"></select></label>
+        <label>수량 kg <input id="c-qty" type="number" inputmode="numeric" min="0" step="100" value="20000"></label>
+        <label>매입 단가 원/kg <input id="c-cost" type="number" inputmode="numeric" min="0" step="10" placeholder="예: 7900"></label>
+        <label>목표 마진 % <input id="c-tgt" type="number" inputmode="decimal" min="0" step="1" value="10"></label>
+        <div class="calcout" id="c-out" aria-live="polite"></div>
+      </form>
+    </section>
   </div>
 
   <div class="tab" id="tab-season" role="tabpanel" aria-labelledby="t-season" hidden>
@@ -306,6 +351,10 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="head"><h2 id="h-risk">리스크 상세</h2><span class="sub">가능성 = 공개 수치에 고정 규칙 적용 · 확률 아님</span></div>
       <div class="scroll"><table id="risks"></table></div>
     </section>
+    <section class="panel" aria-labelledby="h-alerts">
+      <div class="head"><h2 id="h-alerts">보낸 알림 메일</h2><span class="sub">바뀐 것이 있을 때만 발송</span></div>
+      <div id="alerts"></div>
+    </section>
     <section class="panel" aria-labelledby="h-acc">
       <div class="head"><h2 id="h-acc">예측 정확도 (과거 검증)</h2><span class="sub">당시 알 수 있던 정보만 사용</span></div>
       <div id="acc"></div>
@@ -371,7 +420,7 @@ function ko(s) {
 }
 
 /* ---------------- tabs ---------------- */
-const TABS = ["buy", "season", "forecast", "evidence"];
+const TABS = ["buy", "trade", "season", "forecast", "evidence"];
 function showTab(id) {
   if (!TABS.includes(id)) id = "buy";
   TABS.forEach((t) => { $("tab-" + t).hidden = t !== id; $("t-" + t).setAttribute("aria-selected", String(t === id)); });
@@ -474,7 +523,8 @@ $("brief").innerHTML = brief.map((b) => `<li><span>${b}</span></li>`).join("");
 /* ---------------- buyer risk layer ---------------- */
 function renderRisk(D, R) {
   const H3 = R.horizons;
-  $("headline").innerHTML = `지금은 <b>${esc(H3[0].short)}</b>, 비수기 재고는 <b>${esc(H3[1].short)}</b>, 2027년산은 <b>${esc(H3[2].short)}</b>.`;
+  $("headline").innerHTML = `지금은 <b>${esc(H3[0].short)}</b>, 비수기 재고는 <b>${esc(H3[1].short)}</b>, 2027년산은 <b>${esc(H3[2].short)}</b>.` +
+    (D.trading ? ` <span class="sub" style="font-size:15px">매매 신호 · 매수 <b>${esc(D.trading.buy_ko)}</b> · 보유 재고 <b>${esc(D.trading.sell_ko)}</b> <button type="button" class="linkbtn" data-goto="trade">근거 →</button></span>` : "");
   $("changes").innerHTML = D0 ? "" : changesSince(D);
   $("riskmini").innerHTML = R.risks.map((r) => `<div class="r"><span class="lv lv-${r.likelihood_ko}">${r.likelihood_ko}</span><span>${esc(r.name)}</span><span class="d">${esc(r.dir)}</span></div>`).join("");
   const K2 = D.kpi;
@@ -525,6 +575,84 @@ function renderRisk(D, R) {
   $("risks").innerHTML = `<thead><tr><th>리스크</th><th>가능성</th><th>가격 방향</th><th>영향</th><th>근거</th><th>확인 시점 · 지표</th></tr></thead><tbody>` +
     R.risks.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td><span class="lv lv-${r.likelihood_ko}">${r.likelihood_ko}</span></td>
       <td>${esc(r.dir)}</td><td class="mono">${esc(r.impact)}</td><td>${esc(r.evidence)}</td><td><div>${esc(r.when)}</div><div class="src">${esc(r.watch)}</div></td></tr>`).join("") + `</tbody>`;
+}
+
+/* ---------------- trading tab ---------------- */
+function renderTrading(D) {
+  const T = D.trading;
+  if (!T) { $("tradesig").innerHTML = `<div class="ts">한국 수입가격 자료가 아직 없습니다.</div>`; return; }
+  const f = T.features, th = T.thresholds, bt = T.backtest;
+  const cls = { BUY: "up", HOLD: "up", WAIT: "down", SELL: "down", NEUTRAL: "flat" };
+  const posTxt = `최근 5년(추세 보정) 중 상위 ${fmt(100 - f.pos * 100, 0)}% 가격`;
+  const supTxt = T.supply.dir > 0 ? "공급 증가 방향" : T.supply.dir < 0 ? "공급 감소 방향" : "공급 변화 작음";
+  const why = [`가격 위치: ${posTxt} (수입가 ${fmt(T.price)}원/kg, ${T.period})`, `공급: ${supTxt} (${esc(T.supply.basis)})`,
+    `최근 3개월 가격 흐름: ${f.mom >= 0 ? "+" : ""}${fmt(f.mom * 100, 1)}%`];
+  const card = (title, sig, ko, desc, rule, st) => `<article class="ts"><div class="when sub">${title}</div><div class="big ${cls[sig]}">${esc(ko)}</div>
+      <div>${desc}</div><div class="posbar" title="가격 위치 (왼쪽 쌈 · 오른쪽 비쌈)"><i style="left:calc(${(f.pos * 100).toFixed(1)}% - 1px)"></i></div>
+      <div class="sub" style="display:flex;justify-content:space-between"><span>쌈</span><span>가격 위치</span><span>비쌈</span></div>
+      <ul>${why.map((w) => `<li>${w}</li>`).join("")}</ul>
+      <div class="rule">규칙: ${rule}</div>
+      <div class="sub">과거 적중: ${st && st.n ? `${st.n}회 중 ${fmt(st.hit * 100, 0)}% (아무 때나 했을 때 ${fmt(st.base * 100, 0)}%)` : "해당 신호 사례 없음"}</div></article>`;
+  const buyDesc = { BUY: "가격이 싼 편이고 공급이 늘지 않습니다. 필요한 물량을 확보하기 좋은 때입니다.",
+    WAIT: "가격이 비싼 편이고 앞으로 공급이 늘어납니다. 급하지 않은 구매는 미루는 것이 유리했습니다.",
+    NEUTRAL: "뚜렷한 매수·대기 조건이 아닙니다. 필요한 만큼만 평소대로 구매하십시오." }[T.buy];
+  const sellDesc = { SELL: "가격이 과거 상위권이고 공급이 늘거나 가격이 꺾이는 중입니다. 보유 재고를 파는 데 유리한 때입니다.",
+    HOLD: "가격이 낮은 편이고 공급이 줄고 있습니다. 재고를 들고 가는 쪽이 유리했습니다.",
+    NEUTRAL: "뚜렷한 판매·보유 조건이 아닙니다." }[T.sell];
+  $("tradesig").innerHTML =
+    card("신규 매수", T.buy, T.buy_ko, buyDesc, `가격 위치 ≤ ${th.buy_pos * 100}% & 공급 비증가 → 매수 적기 · ≥ ${th.wait_pos * 100}% & 공급 비감소 → 대기`, bt[T.buy === "NEUTRAL" ? "x" : T.buy]) +
+    card("보유 재고 판매", T.sell, T.sell_ko, sellDesc, `가격 위치 ≥ ${th.sell_pos * 100}% & (공급 증가 또는 가격 하락 전환) → 판매 유리 · ≤ ${th.hold_pos * 100}% & 공급 감소 → 보유 유리`, bt[T.sell === "NEUTRAL" ? "x" : T.sell]);
+  // Korea price chart
+  const toX = (p) => +p.slice(0, 4) + (+p.slice(5, 7) - 1) / 12;
+  const ser = T.series.map(([p, v]) => ({ x: toX(p), y: v }));
+  const qpts = (T.latest_quotes || []).filter((q) => q.origin === "Norway").map((q) => ({ x: toX(q.date), y: q.krw_per_kg }));
+  const cifPt = T.cif_krw ? [{ x: toX(T.no_cif.period), y: T.cif_krw }] : [];
+  const vals = ser.map((d) => d.y).concat(qpts.map((d) => d.y));
+  const y1 = Math.ceil(Math.max(...vals) * 1.1 / 1000) * 1000;
+  const x0 = ser[0].x, x1 = Math.max(ser[ser.length - 1].x, ...qpts.map((d) => d.x)) + 0.15;
+  const yrs = []; for (let y = Math.ceil(x0); y <= x1; y++) yrs.push(y);
+  chart($("krc"), { label: "한국 수입가격", h: 280, x0, x1, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: (v) => fmt(v), xt: yrs, xf: String,
+    tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; }, vf: (v) => fmt(v) + " 원/kg",
+    series: [{ name: "수입가격 공개 (냉동 고등어, 전체 원산지)", color: css("--forecast"), r: 2.5, data: ser },
+             { name: "노르웨이산 CIF (원화 환산)", color: css("--catch"), r: 5, data: cifPt },
+             { name: "국내 시세 노르웨이 (업계)", color: css("--advice"), r: 5, data: qpts }] });
+  legend("kr-legend", [["관세청 수입가격 공개 (원/kg)", css("--forecast")], ["노르웨이산 CIF 원화 환산 (최근월)", css("--catch")], ["국내 시세 노르웨이 (업계 보고)", css("--advice")]]);
+  $("quotes").innerHTML = `<thead><tr><th>원산지</th><th>사이즈</th><th class="r">박스</th><th class="r">원/kg</th><th class="r">수입신고가 대비</th><th>메모</th></tr></thead><tbody>` +
+    T.spreads.map((s) => { const q = T.latest_quotes.find((x) => x.origin === s.origin && x.size === s.size);
+      return `<tr><td>${esc({ Norway: "노르웨이", Netherlands: "네덜란드", UK: "영국" }[s.origin] || s.origin)}</td><td class="mono">${esc(s.size)}</td><td class="r mono">${fmt(q.box_kg)}kg · ${fmt(q.price_krw_box)}원</td><td class="r mono"><b>${fmt(s.quote)}</b></td><td class="r mono">${s.vs_import >= 0 ? "+" : ""}${fmt(s.vs_import)} (${pct(s.vs_import_pct, 0)})</td><td class="src">${esc(q.price_note)}</td></tr>`; }).join("") +
+    `</tbody><tfoot><tr><td colspan="6" class="src">국내 시세: ${esc(T.quote_date || "")} 업계 시세 보고 (수기 입력) ${tag("Observed")} · 수입신고가: 관세청 ${esc(T.period)} ${fmt(T.price)}원/kg ${tag("Official")} · 차이에는 관세·운송·보관·마진이 섞여 있음 (관세율 미확인)</td></tr></tfoot>`;
+  $("notes").innerHTML = T.notes.length ? `<div class="sub" style="margin-top:8px">시장 메모 (${esc(T.notes[0].date)})</div><ul class="sub" style="margin:4px 0 0;padding-left:18px">${T.notes.filter((n) => n.date === T.notes[0].date).map((n) => `<li>${esc(n.note)}</li>`).join("")}</ul>` : "";
+  // backtest table
+  $("btt-sub").textContent = `${bt.first} ~ ${bt.last} · ${bt.n}개월 · 6개월 뒤 가격으로 채점`;
+  const lab = { BUY: "매수 적기 → 이후 가격 상승", WAIT: "대기 → 이후 가격 하락", SELL: "판매 유리 → 이후 가격 하락", HOLD: "보유 유리 → 이후 가격 상승" };
+  $("btt").innerHTML = `<thead><tr><th>신호</th><th class="r">발생</th><th class="r">적중</th><th class="r">아무 때나</th><th class="r">차이</th><th class="r">6개월 뒤 평균 가격 변화</th></tr></thead><tbody>` +
+    ["BUY", "WAIT", "SELL", "HOLD"].map((k) => { const x = bt[k]; return x.n ? `<tr><td>${lab[k]}</td><td class="r mono">${x.n}</td><td class="r mono"><b>${fmt(x.hit * 100, 0)}%</b></td><td class="r mono">${fmt(x.base * 100, 0)}%</td><td class="r mono">${x.edge >= 0 ? "+" : ""}${fmt(x.edge * 100, 0)}%p</td><td class="r mono">${x.avg_r6 >= 0 ? "+" : ""}${fmt(x.avg_r6 * 100, 1)}%</td></tr>` : `<tr><td>${lab[k]}</td><td class="r mono">0</td><td colspan="4" class="src">사례 없음</td></tr>`; }).join("") + `</tbody>`;
+  $("btt-note").textContent = "주의: 연속된 달은 같은 흐름을 공유하므로 실제로 독립적인 사례 수는 표의 발생 횟수보다 적습니다. 규칙과 기준값은 결과를 보기 전에 고정했고, 맞지 않으면 그대로 표시합니다. 투자 조언이 아닌 판단 보조입니다.";
+  // inventory
+  const lots = T.lots || [];
+  $("inv-sub").textContent = lots.length ? `확정 재고 ${lots.length}건` : "아직 입력된 확정 재고 없음";
+  $("inv").innerHTML = lots.length ? `<div class="scroll"><table><thead><tr><th>로트</th><th>원산지·사이즈</th><th class="r">수량 kg</th><th class="r">매입 원/kg</th><th class="r">현재 시세</th><th class="r">마진</th><th class="r">평가 차익</th></tr></thead><tbody>${lots.map((l) => `<tr><td class="mono">${esc(l.lot_id)}</td><td>${esc(l.origin)} ${esc(l.size)}</td><td class="r mono">${fmt(+l.qty_kg)}</td><td class="r mono">${fmt(+l.cost_krw_per_kg)}</td><td class="r mono">${fmt(l.market)}</td><td class="r mono">${l.margin == null ? "—" : pct(l.margin, 1)}</td><td class="r mono">${l.value_gain == null ? "—" : fmt(l.value_gain) + "원"}</td></tr>`).join("")}</tbody></table></div>`
+    : `<div class="empty">재고가 확인되면 원산지·사이즈·수량·매입 단가·매입일을 알려 주시거나 맥의 <span class="mono">sources/inventory.csv</span>에 넣고 status를 <span class="mono">confirmed</span>로 표시하면, 로트별 마진과 판매 신호가 여기에 계산됩니다. 그 전에는 아래 계산기로 바로 확인할 수 있습니다.</div>`;
+  // calculator (client-side only)
+  const opts = T.latest_quotes.map((q, i) => `<option value="${i}">${esc(q.origin)} ${esc(q.size)} · ${fmt(q.krw_per_kg)}원/kg</option>`).join("");
+  $("c-q").innerHTML = opts;
+  const KEY = "mk-calc-v1";
+  try { const v = JSON.parse(localStorage.getItem(KEY) || "null"); if (v) { $("c-q").value = v.q; $("c-qty").value = v.qty; $("c-cost").value = v.cost; $("c-tgt").value = v.tgt; } } catch (e) {}
+  const calc = () => {
+    const q = T.latest_quotes[+$("c-q").value || 0], qty = +$("c-qty").value || 0, cost = +$("c-cost").value || 0, tgt = (+$("c-tgt").value || 0) / 100;
+    try { localStorage.setItem(KEY, JSON.stringify({ q: $("c-q").value, qty, cost, tgt: tgt * 100 })); } catch (e) {}
+    if (!cost) { $("c-out").innerHTML = `<span class="sub">매입 단가를 넣으면 현재 시세 기준 마진과 판단이 나옵니다.</span>`; return; }
+    const m = q.krw_per_kg / cost - 1, gain = (q.krw_per_kg - cost) * qty, tgtPrice = cost * (1 + tgt);
+    const verdict = m >= tgt && T.sell === "SELL" ? `<b style="color:var(--good)">판매 유리</b> — 목표 마진 달성 + 판매 신호` :
+      m >= tgt ? `<b>목표 마진 달성</b> — 판매 신호는 '${esc(T.sell_ko)}'` : `<b style="color:var(--warn)">목표 미달</b> — 목표 판매가 ${fmt(tgtPrice)}원/kg (지금보다 ${fmt(tgtPrice - q.krw_per_kg)}원 높아야 함)`;
+    $("c-out").innerHTML = `현재 시세 ${fmt(q.krw_per_kg)}원/kg 기준 마진 <b class="mono">${pct(m, 1)}</b> · 평가 차익 <b class="mono">${fmt(gain)}원</b> · ${verdict}<div class="src">관세·운송·보관비는 매입 단가에 포함해 넣으십시오. 입력값은 이 브라우저에만 저장됩니다.</div>`;
+  };
+  $("calc").oninput = calc; $("calc").onsubmit = (e) => { e.preventDefault(); calc(); };
+  calc();
+  // alerts log
+  const A = D.alerts || [];
+  $("alerts").innerHTML = A.length ? A.map((a) => `<div class="story"><div class="meta"><span class="mono">${kst(a.sent_at)}</span><span>${esc(a.kinds)}</span><span>${esc(a.status)}</span></div><div>${esc(a.subject)}</div></div>`).join("")
+    : `<div class="empty">아직 보낸 알림이 없습니다. 신호·전망·리스크가 바뀌면 메일이 발송되고 여기에 기록됩니다.</div>`;
 }
 /* ---------------- generic SVG line chart ---------------- */
 function chart(el, o) {
@@ -866,6 +994,7 @@ function checksTable() {
   <details class="method"><summary>데이터 감시 상태</summary><div class="mono" style="display:grid;gap:2px">${w}</div></details>`;
 })();
 renderRisk(D, R);
+renderTrading(D);
 } // end render
 
 /* ---------------- live loading ---------------- */
