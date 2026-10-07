@@ -1,4 +1,4 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="비공개 대시보드"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style><title>NEA 고등어 2027 TAC 전망</title>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="비공개 대시보드"><style>*,*::before,*::after{box-sizing:border-box}body{margin:0}[hidden]{display:none!important}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style><title>노르웨이 고등어 쿼터·가격 리스크</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600;700&display=swap">
 <style>
@@ -123,6 +123,25 @@ details.method p, details.method li { color: var(--ink-2); max-width: 80ch; }
 .kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: 13px; }
 .kv dt { color: var(--muted); } .kv dd { margin: 0; }
 
+/* buyer risk layer */
+.horizons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; }
+.hz { padding: 18px; display: grid; gap: 10px; align-content: start; border-right: 1px solid var(--line); min-width: 0; }
+.hz:last-child { border-right: 0; }
+.hz .when { font: 600 12px var(--f-body); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-2); }
+.hz h3 { font: 700 24px/1.05 var(--f-display); }
+.sig { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--f-body); padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; width: fit-content; }
+.sig.up { color: var(--bad); } .sig.down { color: var(--good); } .sig.wait { color: var(--warn); } .sig.flat { color: var(--muted); }
+.hz .act { font-size: 14px; line-height: 1.55; }
+.hz dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; margin: 0; font-size: 13px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.hz dt { color: var(--ink-2); } .hz dd { margin: 0; text-align: right; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.hz dd small { display: block; color: var(--muted); font-size: 11px; }
+.hz .rule { font: 11px var(--f-mono); color: var(--muted); }
+.lv { font: 600 11.5px var(--f-body); padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.lv-높음 { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+.lv-보통 { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.lv-낮음 { background: color-mix(in srgb, var(--good) 14%, transparent); color: var(--good); }
+.sectionlabel { font: 700 13px var(--f-body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 8px; }
+@media (max-width: 980px) { .horizons { grid-template-columns: 1fr; } .hz { border-right: 0; border-bottom: 1px solid var(--line); } .hz:last-child { border-bottom: 0; } }
 @media (max-width: 980px) {
   .board { grid-template-columns: 1fr; } .hero { border-right: 0; border-bottom: 1px solid var(--line); }
   .grid2, .grid3 { grid-template-columns: 1fr; }
@@ -150,7 +169,7 @@ body.locked .wrap > section:not(#lock):not(.board), body.locked .wrap > .grid2, 
   <header class="top">
     <div>
       <div class="sub">North-East Atlantic mackerel · <span class="mono">mac.27.nea</span></div>
-      <h1>2027 고등어 TAC 전망</h1>
+      <h1>노르웨이 고등어 쿼터 · 가격 리스크</h1>
     </div>
     <div class="meta"><span class="pill" id="live" aria-live="polite"></span><span class="meta" id="meta"></span></div>
   </header>
@@ -168,6 +187,21 @@ body.locked .wrap > section:not(#lock):not(.board), body.locked .wrap > .grid2, 
     </form>
   </section>
 
+  <section class="horizons" id="horizons" aria-label="구매 리스크 요약"></section>
+
+  <section class="panel" aria-labelledby="h-season">
+    <div class="head"><h2 id="h-season">올해 시즌 진행 현황 · 노르웨이</h2><span class="sub" id="season-sub"></span></div>
+    <div class="legend" id="season-legend"></div>
+    <div class="chart" id="seasonc"></div>
+    <div class="sub" id="season-note"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-risk">
+    <div class="head"><h2 id="h-risk">리스크 목록</h2><span class="sub">가능성은 공개 수치에 고정 규칙을 적용한 결과 · 확률 아님</span></div>
+    <div class="scroll"><table id="risks"></table></div>
+  </section>
+
+  <div class="sectionlabel">2027 TAC 전망 (상세)</div>
   <section class="board" aria-label="핵심 지표">
     <div class="hero" id="hero"><div class="label">2027 TAC 전망</div><div class="sub">최신 전망을 불러오는 중…</div></div>
     <div class="tiles" id="tiles"></div>
@@ -269,6 +303,7 @@ const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n
 const kst = (iso) => { if (!iso) return "—"; const d = new Date(iso); return d.toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).slice(0, 16) + " KST"; };
 function render(D) {
 const K = D.kpi, ref = K.ref, tot = K.total;
+const R = D.risk;
 
 /* ---------------- header + KPI ---------------- */
 const lc = K.last_check;
@@ -323,10 +358,45 @@ const brief = [
   `변수: <b>러시아</b>(독자 선언, TAC의 ${pct(ru.share_of_ref)}로 가정)와 <b>EU</b>(4자 합의 밖, ${pct(eu.share_of_ref)} 잔차). 이 둘이 TAC와 총 쿼터의 차이를 만듦.`,
   `TAC 신뢰도 <b>${K.confidence}/100</b>, 공급 신뢰도 <b>${K.conf_total.score}/100</b>. ${esc(K.conf_tac.note)}. 12월 합의 시 TAC 100, 국가 쿼터 확정 시 공급 ~77 이상.`,
   `TAC 규칙 백테스트 MAPE ${fmt(D.backtest.S_ref_rule.metrics.MAPE, 1)}% (n=${D.backtest.S_ref_rule.metrics.n}, 5년 중 4년 정확 일치, 2026 급감년만 −42%) · 통계 모델 MAPE ${fmt(B1.MAPE, 1)}% (n=${B1.n}).`,
-  `공급 신호: 2027 총 쿼터 <b>${supplyChg >= 0 ? "+" : ""}${pct(supplyChg, 0)}</b> (2026 대비) → 가격모형(탐색용) 기준 2027/28 시즌 단가 <b>${pf && pf0 ? (pf.nok_per_kg / pf0.nok_per_kg - 1 >= 0 ? "+" : "") + pct(pf.nok_per_kg / pf0.nok_per_kg - 1, 0) : "—"}</b> (2026/27 대비). 2027년산 공급이 늘 가능성이 높아 <b>2027년산 선매수는 서두를 근거 약함</b>, 2026년산 재고 구매는 공급 증가와 무관. 합의 전이라 확정 판단은 12월 합의 확인 후.`,
+  `구매 판단 — 지금: <b>${esc(R.horizons[0].signal.label)}</b> · 비수기: <b>${esc(R.horizons[1].signal.label)}</b> · 2027 시즌: <b>${esc(R.horizons[2].signal.label)}</b>. 공급 신호: 2027 총 쿼터 <b>${supplyChg >= 0 ? "+" : ""}${pct(supplyChg, 0)}</b> (2026 대비) → 가격모형(탐색용) 기준 2027/28 시즌 단가 <b>${pf && pf0 ? (pf.nok_per_kg / pf0.nok_per_kg - 1 >= 0 ? "+" : "") + pct(pf.nok_per_kg / pf0.nok_per_kg - 1, 0) : "—"}</b> (2026/27 대비). 2027년산 공급이 늘 가능성이 높아 <b>2027년산 선매수는 서두를 근거 약함</b>, 2026년산 재고 구매는 공급 증가와 무관. 합의 전이라 확정 판단은 12월 합의 확인 후.`,
 ];
 $("brief").innerHTML = brief.map((b) => `<li><span>${b}</span></li>`).join("");
 
+
+/* ---------------- buyer risk layer ---------------- */
+function renderRisk(D, R) {
+  const fv = (f) => f.v == null ? "" : (f.unit === "%" ? fmt(f.v, 0) + "%" : f.unit === "t" ? fmt(f.v) + " t" : f.unit === "NOK/kg" ? fmt(f.v, 2) + " NOK/kg" : f.unit === "원/NOK" ? fmt(f.v, 1) + " 원/NOK" : fmt(f.v) + (f.unit || ""));
+  const arrow = { up: "▲", down: "▼", wait: "◆", flat: "●" };
+  $("horizons").innerHTML = R.horizons.map((h) => `<article class="hz">
+      <div class="when">${esc(h.period)}</div><h3>${esc(h.title)}</h3>
+      <span class="sig ${h.signal.level}">${arrow[h.signal.level] || ""} ${esc(h.signal.label)}</span>
+      <div class="act">${esc(h.action)}</div>
+      <dl>${h.facts.map((f) => `<dt>${esc(f.k)}</dt><dd>${fv(f)}<small>${esc(f.note || "")}</small></dd>`).join("")}</dl>
+      <div class="rule">규칙: ${esc(h.rule)}</div></article>`).join("");
+  // season progress chart
+  const S = R.season, yrs = [...new Set(S.progress.map((p) => p.year))].sort().slice(-3);
+  const doy = (iso) => { const d = new Date(iso + "T00:00:00Z"), y0 = Date.UTC(d.getUTCFullYear(), 0, 1); return (d - y0) / 864e5 + 1; };
+  const cols = [css("--muted"), css("--catch"), css("--forecast")];
+  const series = yrs.map((y, i) => ({ name: `${y}년 누적 어획`, color: cols[i - (yrs.length - 3)] || cols[i], r: y === yrs[yrs.length - 1] ? 3 : 2,
+    data: S.progress.filter((p) => p.year === y).map((p) => ({ x: Math.round(doy(p.as_of)), y: p.caught })) }));
+  const q = S.quota || {};
+  const ymax = Math.ceil(Math.max(...S.progress.map((p) => Math.max(p.caught, p.assigned))) * 1.08 / 25000) * 25000;
+  const mstarts = [1, 32, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335];
+  chart($("seasonc"), { label: "노르웨이 고등어 누적 어획", h: 300, x0: 1, x1: 366, y0: 0, y1: ymax, yt: niceTicks(0, ymax, 5), yf: kt,
+    xt: mstarts, xf: (v) => (mstarts.indexOf(v) + 1) + "월", tf: (v) => { const d = new Date(Date.UTC(2026, 0, v)); return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`; }, vf: t,
+    series,
+    refs: q.available ? [{ y: q.available, color: css("--forecast"), dash: "2 4", label: `${yrs[yrs.length - 1]} 가용 쿼터 ${fmt(q.available)} t` }] : [],
+    extraTip: (xv) => "" });
+  legend("season-legend", yrs.map((y, i) => [`${y}년 누적 어획`, series[i].color]).concat([["올해 가용 쿼터", css("--forecast"), "dash"]]));
+  const after = S.caught_after_date || {};
+  $("season-sub").textContent = `Norges Sildesalgslag · ${q.retrieved ? kst(q.retrieved) : ""} 확인`;
+  $("season-note").innerHTML = `오늘(${esc(S.as_of_md.replace("-", "/"))}) 이후 연말까지 추가 어획: ${Object.keys(after).sort().map((y) => `${y}년 <b class="mono">${fmt(after[y])} t</b>`).join(" · ")} → 올해 남은 양 <b class="mono">${fmt(q.remaining)} t</b>. ` +
+    `영국 수역 노르웨이 쿼터 ${fmt(q.uk_zone_caught)} / ${fmt(q.uk_zone_quota)} t 사용. ` + tag("Official");
+  // risk register
+  $("risks").innerHTML = `<thead><tr><th>리스크</th><th>가능성</th><th>가격 방향</th><th>영향</th><th>근거</th><th>확인 시점 · 지표</th></tr></thead><tbody>` +
+    R.risks.map((r) => `<tr><td><b>${esc(r.name)}</b></td><td><span class="lv lv-${r.likelihood_ko}">${r.likelihood_ko}</span></td>
+      <td>${esc(r.dir)}</td><td class="mono">${esc(r.impact)}</td><td>${esc(r.evidence)}</td><td><div>${esc(r.when)}</div><div class="src">${esc(r.watch)}</div></td></tr>`).join("") + `</tbody>`;
+}
 /* ---------------- generic SVG line chart ---------------- */
 function chart(el, o) {
   const W = o.w || 1160, Hh = o.h || 320, m = { l: 64, r: 16, t: 12, b: 28, ...(o.m || {}) };
@@ -666,6 +736,7 @@ function checksTable() {
     <p>둘 다 확률이 아닌 정보 충분도 점수. 50 미만 "불확실성 높음", 70 미만 "불확실성 있음" 경고.</p></details>
   <details class="method"><summary>데이터 감시 상태</summary><div class="mono" style="display:grid;gap:2px">${w}</div></details>`;
 })();
+renderRisk(D, R);
 } // end render
 
 /* ---------------- live loading ---------------- */
