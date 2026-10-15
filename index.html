@@ -236,6 +236,7 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
 
   <nav class="tabs" role="tablist" aria-label="화면">
     <button type="button" role="tab" id="t-buy" data-tab="buy" aria-controls="tab-buy">구매 판단</button>
+    <button type="button" role="tab" id="t-stock" data-tab="stock" aria-controls="tab-stock">한국 재고</button>
     <button type="button" role="tab" id="t-trade" data-tab="trade" aria-controls="tab-trade">매매 타이밍</button>
     <button type="button" role="tab" id="t-season" data-tab="season" aria-controls="tab-season">시즌 · 가격</button>
     <button type="button" role="tab" id="t-forecast" data-tab="forecast" aria-controls="tab-forecast">2027 전망</button>
@@ -261,6 +262,31 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <summary class="sumh">질문 ①–⑩ 에 대한 현재 답 보기</summary>
       <ol class="brief" id="brief"></ol>
     </details>
+  </div>
+
+  <div class="tab" id="tab-stock" role="tabpanel" aria-labelledby="t-stock" hidden>
+    <section class="panel" aria-labelledby="h-ks">
+      <div class="head"><h2 id="h-ks">한국에 남은 고등어</h2><span class="sub" id="ks-sub"></span></div>
+      <div class="mini" id="ksmini"></div>
+      <div class="legend" id="ks-legend"></div>
+      <div class="chart" id="ksc"></div>
+      <p class="sub" id="ks-note"></p>
+    </section>
+    <section class="panel" aria-labelledby="h-pipe">
+      <div class="head"><h2 id="h-pipe">노르웨이산 공급 흐름</h2><span class="sub" id="pipe-sub"></span></div>
+      <div class="mini" id="pipemini"></div>
+      <div class="legend" id="pipe-legend"></div>
+      <div class="chart" id="pipec"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-bal">
+      <div class="head"><h2 id="h-bal">월별 수급표 (톤)</h2><span class="sub">재고 = 직전 재고 + 생산 + 수입 − 수출 − 소비</span></div>
+      <div class="scroll"><table id="baltab"></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-ksbt">
+      <div class="head"><h2 id="h-ksbt">재고 추정이 과거에 얼마나 맞았나</h2><span class="sub" id="ksbt-sub"></span></div>
+      <div class="scroll"><table id="ksbt"></table></div>
+      <ul class="sub" id="ks-notes" style="margin:0;padding-left:18px"></ul>
+    </section>
   </div>
 
   <div class="tab" id="tab-trade" role="tabpanel" aria-labelledby="t-trade" hidden>
@@ -468,7 +494,7 @@ function fxPill() {
 setInterval(fetchFx, 30 * 60 * 1000);
 
 /* ---------------- tabs ---------------- */
-const TABS = ["buy", "trade", "season", "forecast", "evidence"];
+const TABS = ["buy", "stock", "trade", "season", "forecast", "evidence"];
 function showTab(id) {
   if (!TABS.includes(id)) id = "buy";
   TABS.forEach((t) => { $("tab-" + t).hidden = t !== id; $("t-" + t).setAttribute("aria-selected", String(t === id)); });
@@ -514,7 +540,7 @@ const R = D.risk;
 const lc = K.last_check;
 $("meta").innerHTML = `
   <span class="pill"><span class="dot" style="background:${lc && lc.changed ? "var(--forecast)" : "var(--good)"}"></span>최근 확인 ${kst(lc && lc.timestamp)} · ${lc && lc.changed ? "전망 재계산" : "변경 없음"}</span>
-  <span class="pill">모델 ${esc(D.model_version)}</span>${D0 ? "" : `<button type="button" class="linkbtn" onclick="forget()">잠그기</button>`}`;
+  <span class="pill">대시보드 ${esc(D.dash_version || "")} · TAC 모델 ${esc(D.model_version)}</span>${D0 ? "" : `<button type="button" class="linkbtn" onclick="forget()">잠그기</button>`}`;
 const lo = Math.min(ref.low, D.kpi.advice) * 0.94, hi = Math.max(ref.high, D.kpi.advice) * 1.03;
 const P = (v) => ((v - lo) / (hi - lo) * 100).toFixed(2) + "%";
 const d24 = K.d24;
@@ -745,6 +771,66 @@ function renderSizes(D) {
       series: [{ name: "평균 마리 무게", color: css("--forecast"), r: 3, data: W.map((w) => ({ x: toX(w.week), y: w.avg_g })) }] });
   }
   $("size-notes").innerHTML = Z.notes.map((n) => `<li>${esc(n)}</li>`).join("");
+}
+
+/* ---------------- Korea stock (v2) ---------------- */
+function renderStock(D) {
+  const K = D.korea_stock;
+  if (!K) { $("ksmini").innerHTML = `<div class="sub">KMI 재고 자료를 불러오지 못했습니다.</div>`; return; }
+  const L = K.latest, P = K.pipeline, of = K.stock_official;
+  const chg = K.stock_ly ? L.est / K.stock_ly - 1 : null;
+  $("ks-sub").textContent = `KMI 공식 재고 ${of.period}까지 · 이후 ${L.period}까지 추정`;
+  $("ksmini").innerHTML = [
+    [`재고 추정 (${L.period.slice(5)}월말)`, fmt(L.est), "t", `80% 범위 ${fmt(L.lo)}–${fmt(L.hi)} t · 작년 같은 달 ${fmt(K.stock_ly)} t (${chg == null ? "—" : pct(chg, 0)})`],
+    ["평소 소비 기준 남은 기간", K.cover_months == null ? "—" : fmt(K.cover_months, 1), "개월", `작년 같은 때 ${K.cover_ly == null ? "—" : fmt(K.cover_ly, 1)}개월 · 월평균 소비 ${fmt(K.use_norm)} t`],
+    ["KMI 공식 재고 (최신)", fmt(of.tonnes), "t", `${of.period}월말 · 공식 공개 최신월`],
+    ["5년 같은 달 평균", fmt(K.stock_5y), "t", `${L.period.slice(5)}월 기준`],
+  ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
+  // stock chart: official (solid) + nowcast (dashed, band) + last year same month (thin)
+  const toX = (p) => +p.slice(0, 4) + (+p.slice(5, 7) - 1) / 12;
+  const off = K.history.filter((h) => h.stock != null).map((h) => ({ x: toX(h.period), y: h.stock }));
+  const nc = [{ x: toX(of.period), y: of.tonnes }].concat(K.nowcast.map((n) => ({ x: toX(n.period), y: n.est })));
+  const band = [{ x: toX(of.period), lo: of.tonnes, hi: of.tonnes }].concat(K.nowcast.map((n) => ({ x: toX(n.period), lo: n.lo, hi: n.hi })));
+  const y1 = Math.ceil(Math.max(...off.map((d) => d.y), ...band.map((d) => d.hi)) * 1.08 / 10000) * 10000;
+  const x0 = toX("2021-01"), x1 = toX(L.period) + 0.1;
+  const yrs = []; for (let y = 2021; y <= Math.floor(x1); y++) yrs.push(y);
+  chart($("ksc"), { label: "한국 고등어 재고", h: 300, x0, x1, y0: 0, y1, yt: niceTicks(0, y1, 5), yf: kt, xt: yrs, xf: String,
+    tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; }, vf: t,
+    bands: [{ data: band, fill: css("--forecast-band") }],
+    series: [{ name: "KMI 공식 재고", color: css("--actual"), r: 2.5, data: off }, { name: "추정 (공식 이후)", color: css("--forecast"), dash: "5 4", r: 3, data: nc }] });
+  legend("ks-legend", [["KMI 공식 재고 (2018-07~ 관측센터 추정치)", css("--actual")], ["본 대시보드 추정 (관세청·KMI 생산 반영)", css("--forecast"), "dash"], ["추정 80% 범위", css("--forecast-band"), "band"]]);
+  $("ks-note").innerHTML = `${tag("Official")} KMI 재고 · ${tag("Estimated")} ${esc(of.period)} 이후 추정. 고등어 전체(국산+수입) 재고이며 원산지별 재고는 공개되지 않습니다. 최근 3개월 냉동 고등어 수입 중 노르웨이산 비중 ${pct(K.norway_share_imports_3m, 0)} (관세청).`;
+  // pipeline
+  const pend = P.pending || [];
+  $("pipe-sub").textContent = `노르웨이 통계청 선적 ${P.last_shipping} · 관세청 반입 ${P.last_arrival} · 선적→반입 평균 ${P.lag_months}개월 (상관 ${fmt(P.lag_r, 2)}, ${P.lag_n}개월)`;
+  $("pipemini").innerHTML = [
+    ["올해 노르웨이산 반입", fmt(P.arr_ytd), "t", `1~${P.last_arrival.slice(5)}월 · 작년 ${fmt(P.arr_ytd_ly)} t (${pct(P.arr_ytd / P.arr_ytd_ly - 1, 0)}) · 3년 평균 ${fmt(P.arr_ytd_3y)} t`],
+    ["도착 예정 (선적 완료)", fmt(P.pending_t), "t", pend.map((x) => `${x.shipped.slice(5)}월 선적 ${fmt(x.tonnes)} t → ${x.expected_arrival.slice(5)}월경`).join(" · ") || "없음"],
+    ["이번 시즌 선적 (9월~)", fmt(P.ship_season), "t", `작년 같은 기간 ${fmt(P.ship_season_ly)} t (${P.ship_season_ly ? pct(P.ship_season / P.ship_season_ly - 1, 0) : "—"})`],
+    (() => { const q = (D.risk.season || {}).quota || {}; const r = q.remaining;
+      return ["노르웨이 쿼터 잔여", r == null ? "—" : r <= 0 ? "소진" : fmt(r), r != null && r > 0 ? "t" : "",
+        r == null ? "" : r <= 0 ? `가용 ${fmt(q.available)} t 중 ${fmt(q.caught)} t 어획 → 올해 추가 선적 여력 작음 (Sildelaget)` : `가용 ${fmt(q.available)} t 중 잔여 (Sildelaget)`]; })(),
+  ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
+  const sh = P.ship_months.map((m) => ({ x: toX(m.period), y: m.t })), ar = P.arr_months.map((m) => ({ x: toX(m.period), y: m.t }));
+  const py1 = Math.ceil(Math.max(...sh.map((d) => d.y), ...ar.map((d) => d.y)) * 1.1 / 1000) * 1000;
+  const px0 = Math.min(sh[0].x, ar[0].x), px1 = Math.max(sh[sh.length - 1].x, ar[ar.length - 1].x) + 0.05;
+  const pyrs = []; for (let y = Math.ceil(px0); y <= px1; y++) pyrs.push(y);
+  chart($("pipec"), { label: "노르웨이 선적과 한국 반입", h: 260, x0: px0, x1: px1, y0: 0, y1: py1, yt: niceTicks(0, py1, 5), yf: kt, xt: pyrs, xf: String,
+    tf: (v) => { const y = Math.floor(v + 1e-6), mo = Math.round((v - y) * 12) + 1; return `${y}-${String(mo).padStart(2, "0")}`; }, vf: t,
+    series: [{ name: "노르웨이 → 한국 선적 (노르웨이 통계청)", color: css("--catch"), r: 3, data: sh }, { name: "한국 반입 노르웨이산 (관세청)", color: css("--forecast"), r: 3, data: ar }] });
+  legend("pipe-legend", [["노르웨이 → 한국 선적 (노르웨이 통계청, 냉동)", css("--catch")], ["한국 반입 노르웨이산 (관세청 HS 0303.54)", css("--forecast")]]);
+  // balance table (last 14 months)
+  const H = K.history.slice(-14).reverse();
+  const nmap = Object.fromEntries(K.nowcast.map((n) => [n.period, n]));
+  $("baltab").innerHTML = `<thead><tr><th>월</th><th class="r">월말 재고</th><th class="r">국내 생산</th><th class="r">수입</th><th class="r">그중 노르웨이</th><th class="r">수출</th><th class="r">소비(역산)</th></tr></thead><tbody>` +
+    H.map((h) => { const n = nmap[h.period]; const stock = h.stock != null ? `${fmt(h.stock)} ${tag("Official")}` : n ? `${fmt(n.est)} ${tag("Estimated")}` : "—";
+      return `<tr><td class="mono">${h.period}</td><td class="r mono">${stock}</td><td class="r mono">${fmt(h.prod)}</td><td class="r mono">${fmt(h.imp)}</td><td class="r mono">${fmt(h.imp_no)}</td><td class="r mono">${fmt(h.exp)}</td><td class="r mono">${h.use == null ? "—" : fmt(h.use)}</td></tr>`; }).join("") + `</tbody>`;
+  // backtest
+  const bt = K.backtests, mdl = { fixed: "고정량 (같은 달 평균 소비량)", rate: "비율 (가용량 대비 같은 달 평균 소비율)" };
+  $("ksbt-sub").textContent = `채택: ${mdl[K.model]} · 과거 ${bt[K.model][1].n}개 시점에서 1~6개월 앞 재고를 다시 추정해 KMI 공식치와 비교`;
+  $("ksbt").innerHTML = `<thead><tr><th>모형</th>${[1, 2, 3, 4, 5, 6].map((h) => `<th class="r">${h}개월 뒤 오차</th>`).join("")}<th class="r">평균</th><th>현재 추정 유효</th></tr></thead><tbody>` +
+    Object.keys(bt).map((m) => `<tr${m === K.model ? ' style="font-weight:600"' : ""}><td>${mdl[m]}</td>${[1, 2, 3, 4, 5, 6].map((h) => `<td class="r mono">${fmt(bt[m][h].mape, 1)}%<div class="src">치우침 ${bt[m][h].bias >= 0 ? "+" : ""}${fmt(bt[m][h].bias, 1)}%</div></td>`).join("")}<td class="r mono">${fmt(K.model_scores[m], 1)}%</td><td>${K.model_valid[m] ? "유효" : "무효 (재고가 0 아래로 계산됨)"}</td></tr>`).join("") + `</tbody>`;
+  $("ks-notes").innerHTML = K.notes.concat(["업체별 수입 단가·물량은 관세법상 과세정보 비밀유지 대상이라 관세청·식약처 어디에서도 공개되지 않습니다. 이 화면은 공개된 기관 통계만 씁니다."]).map((n) => `<li>${esc(n)}</li>`).join("");
 }
 /* ---------------- generic SVG line chart ---------------- */
 function chart(el, o) {
@@ -1081,6 +1167,7 @@ function checksTable() {
 renderRisk(D, R);
 renderTrading(D);
 renderSizes(D);
+renderStock(D);
 fxPill();
 } // end render
 
