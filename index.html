@@ -278,6 +278,16 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="legend" id="pipe-legend"></div>
       <div class="chart" id="pipec"></div>
     </section>
+    <section class="panel" aria-labelledby="h-out">
+      <div class="head"><h2 id="h-out">연말(12월말) 재고 전망</h2><span class="sub">시나리오 · 추정</span></div>
+      <div class="mini" id="outmini"></div>
+      <div class="scroll"><table id="outtab"></table></div>
+      <ul class="sub" id="out-notes" style="margin:0;padding-left:18px"></ul>
+    </section>
+    <section class="panel" aria-labelledby="h-gov">
+      <div class="head"><h2 id="h-gov">정부 조치 (공식 발표)</h2><span class="sub">해양수산부 · 국립수산과학원</span></div>
+      <div id="govlist"></div>
+    </section>
     <section class="panel" aria-labelledby="h-bal">
       <div class="head"><h2 id="h-bal">월별 수급표 (톤)</h2><span class="sub">재고 = 직전 재고 + 생산 + 수입 − 수출 − 소비</span></div>
       <div class="scroll"><table id="baltab"></table></div>
@@ -285,6 +295,8 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
     <section class="panel" aria-labelledby="h-ksbt">
       <div class="head"><h2 id="h-ksbt">재고 추정이 과거에 얼마나 맞았나</h2><span class="sub" id="ksbt-sub"></span></div>
       <div class="scroll"><table id="ksbt"></table></div>
+      <div class="sub" style="margin-top:6px"><b>재고가 적으면 수입 가격이 올랐나?</b> (과거 검증)</div>
+      <div class="scroll"><table id="ksval"></table></div>
       <ul class="sub" id="ks-notes" style="margin:0;padding-left:18px"></ul>
     </section>
   </div>
@@ -297,6 +309,8 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="chart" id="krc"></div>
       <div class="scroll"><table id="quotes"></table></div>
       <div id="notes"></div>
+      <div class="sub" style="margin-top:10px"><b>관세 (관세청 2026 관세율표 · 해수부)</b></div>
+      <div class="scroll"><table id="tariffs"></table></div>
     </section>
     <section class="panel" aria-labelledby="h-btt">
       <div class="head"><h2 id="h-btt">이 규칙이 과거에 맞았나</h2><span class="sub" id="btt-sub"></span></div>
@@ -832,6 +846,41 @@ function renderStock(D) {
     Object.keys(bt).map((m) => `<tr${m === K.model ? ' style="font-weight:600"' : ""}><td>${mdl[m]}</td>${[1, 2, 3, 4, 5, 6].map((h) => `<td class="r mono">${fmt(bt[m][h].mape, 1)}%<div class="src">치우침 ${bt[m][h].bias >= 0 ? "+" : ""}${fmt(bt[m][h].bias, 1)}%</div></td>`).join("")}<td class="r mono">${fmt(K.model_scores[m], 1)}%</td><td>${K.model_valid[m] ? "유효" : "무효 (재고가 0 아래로 계산됨)"}</td></tr>`).join("") + `</tbody>`;
   $("ks-notes").innerHTML = K.notes.concat(["업체별 수입 단가·물량은 관세법상 과세정보 비밀유지 대상이라 관세청·식약처 어디에서도 공개되지 않습니다. 이 화면은 공개된 기관 통계만 씁니다."]).map((n) => `<li>${esc(n)}</li>`).join("");
 }
+
+/* ---------------- v2.1: outlook, validation, government actions, tariffs ---------------- */
+function renderV21(D) {
+  const K = D.korea_stock;
+  if (K && K.outlook) {
+    const O = K.outlook, dec = O.dec;
+    $("outmini").innerHTML = [
+      ["12월말 재고 전망", fmt(dec.est), "t", `범위 ${fmt(dec.lo)}–${fmt(dec.hi)} t · 작년 12월 ${fmt(O.ly_dec)} t (${pct(dec.est / O.ly_dec - 1, 0)})`],
+      ["4분기 국내 어획 (국립수산과학원)", fmt(O.nifs_q4), "t", "대형선망 전망 · 전년의 90%, 평년의 110%"],
+      ["노르웨이산 도착 예정", fmt(Object.values(O.arrivals).reduce((a, b) => a + b, 0)), "t", Object.entries(O.arrivals).map(([m, v]) => `${m.slice(5)}월 ${fmt(v)} t`).join(" · ")],
+      (() => { const sp = O.paths.est.reduce((a, r) => a + r.prod, 0), se = O.paths.est.reduce((a, r) => a + r.exp, 0);
+        return ["판단", dec.est < O.ly_dec * 0.6 ? "빠듯" : "보통", "", `국내 어획으로 재고는 다시 쌓이지만, 작년 같은 시기 비율이면 생산의 ${pct(se / sp, 0)}가 수출 → 노르웨이산 공급은 계속 빠듯`]; })(),
+    ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
+    $("outtab").innerHTML = `<thead><tr><th>월</th><th class="r">월말 재고 (기준)</th><th class="r">범위</th><th class="r">국내 생산</th><th class="r">수입</th><th class="r">수출</th></tr></thead><tbody>` +
+      O.paths.est.map((r, i) => `<tr><td class="mono">${r.period}</td><td class="r mono">${fmt(r.stock)} ${tag("Estimated")}</td><td class="r mono">${fmt(O.paths.lo[i].stock)}–${fmt(O.paths.hi[i].stock)}</td><td class="r mono">${fmt(r.prod)}</td><td class="r mono">${fmt(r.imp)}</td><td class="r mono">${fmt(r.exp)}</td></tr>`).join("") + `</tbody>`;
+    $("out-notes").innerHTML = O.assumptions.map((a) => `<li>${esc(a)}</li>`).join("");
+  }
+  if (K && K.validation) {
+    const V = K.validation, row = (lab, g) => `<tr><td>${lab}</td><td class="r mono">${g.n}</td><td class="r mono">${g.avg == null ? "—" : (g.avg >= 0 ? "+" : "") + fmt(g.avg, 1) + "%"}</td><td class="r mono">${g.up == null ? "—" : fmt(g.up, 0) + "%"}</td></tr>`;
+    $("ksval").innerHTML = `<thead><tr><th>그 달 재고 (같은 달 5년 평균 대비)</th><th class="r">개월</th><th class="r">6개월 뒤 수입가 평균 변화</th><th class="r">오른 비율</th></tr></thead><tbody>` +
+      row("적음 (−25% 이하)", V.low) + row("보통", V.mid) + row("많음 (+25% 이상)", V.high) +
+      `</tbody><tfoot><tr><td colspan="4" class="src">${V.first}~${V.last} · KMI 재고 × 관세청 수입가격. 재고 부족은 수입가 상승으로 이어지지 않았음 → 재고는 '물량 확보' 신호로만 사용</td></tr></tfoot>`;
+  }
+  const G = D.gov_actions || [];
+  $("govlist").innerHTML = G.length ? G.slice().reverse().map((g) => `<div class="story"><div class="meta"><span class="mono">${esc(g.date)}</span>${g.tonnes ? `<b>${fmt(+g.tonnes)} t</b>` : ""}<span>${esc(g.period)}</span>${tag(g.title.includes("전망") ? "Forecast" : "Official")}</div>
+      <div><b>${esc(g.title)}</b> — ${esc(g.measure)}</div><div class="src"><a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.source)}</a></div></div>`).join("") : `<div class="empty">기록된 조치 없음</div>`;
+  const TF = D.tariffs || [];
+  if ($("tariffs")) $("tariffs").innerHTML = `<thead><tr><th>품목</th><th>원산지·구분</th><th class="r">관세율</th><th>근거</th><th>적용기간</th></tr></thead><tbody>` +
+    TF.map((t) => `<tr><td>${esc(t.product)}<div class="src mono">${esc(t.hs10)}</div></td><td>${esc(t.origin)}</td><td class="r mono"><b>${esc(t.rate_pct)}%</b></td><td class="src">${esc(t.basis)}</td><td class="src">${esc(t.valid)}</td></tr>`).join("") + `</tbody>`;
+  // fillet tile in pipeline
+  if (K && K.pipeline && $("pipemini")) {
+    const P = K.pipeline;
+    $("pipemini").innerHTML += (`<div class="m"><div class="k">올해 노르웨이산 필레 반입</div><div class="v">${fmt(P.fillet_ytd)}<small> t</small></div><div class="n">${esc(`냉동 고등어 필레(0304.89-5000) · 작년 같은 기간 ${fmt(P.fillet_ytd_ly)} t (${pct(P.fillet_ytd / P.fillet_ytd_ly - 1, 0)})`)}</div></div>`);
+  }
+}
 /* ---------------- generic SVG line chart ---------------- */
 function chart(el, o) {
   const W = o.w || 1160, Hh = o.h || 320, m = { l: 64, r: 16, t: 12, b: 28, ...(o.m || {}) };
@@ -1168,6 +1217,7 @@ renderRisk(D, R);
 renderTrading(D);
 renderSizes(D);
 renderStock(D);
+renderV21(D);
 fxPill();
 } // end render
 
