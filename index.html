@@ -147,6 +147,15 @@ details.method p, details.method li { color: var(--ink-2); max-width: 80ch; }
 .mini .n { font-size: 12px; color: var(--muted); }
 details.panel > summary.sumh { cursor: pointer; font: 600 13px var(--f-body); letter-spacing: .06em; color: var(--ink-2); }
 abbr[title] { text-decoration: underline dotted; cursor: help; }
+.chainrow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.chainrow .st { padding: 12px 14px; border-right: 1px solid var(--line); display: grid; gap: 3px; align-content: start; position: relative; }
+.chainrow .st:last-child { border-right: 0; }
+.chainrow .st:not(:last-child)::after { content: "→"; position: absolute; right: -8px; top: 12px; background: var(--surface); color: var(--muted); font-size: 12px; line-height: 16px; width: 16px; text-align: center; z-index: 1; }
+.chainrow .k { font-size: 11.5px; color: var(--ink-2); font-weight: 600; }
+.chainrow .v { font: 700 26px/1.05 var(--f-display); font-variant-numeric: tabular-nums; }
+.chainrow .v small { font-size: .5em; color: var(--muted); }
+.chainrow .n { font-size: 11.5px; color: var(--muted); }
+@media (max-width: 760px) { .chainrow { grid-template-columns: minmax(0, 1fr); } .chainrow .st { border-right: 0; border-bottom: 1px solid var(--line); } .chainrow .st:not(:last-child)::after { content: "↓"; right: auto; left: 14px; top: auto; bottom: -8px; } }
 @media (max-width: 620px) { .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* sizes */
 .bins { display: grid; gap: 4px; }
@@ -307,6 +316,15 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
 
   <div class="tab" id="tab-trade" role="tabpanel" aria-labelledby="t-trade" hidden>
     <section class="tradesig" id="tradesig" aria-label="매매 신호"></section>
+    <section class="panel" aria-labelledby="h-pc">
+      <div class="head"><h2 id="h-pc">가격 동선 · 노르웨이 → 한국</h2><span class="sub" id="pc-sub"></span></div>
+      <div class="chainrow" id="pcrow"></div>
+      <div class="mini" id="pcmini"></div>
+      <div class="legend" id="pc-legend"></div>
+      <div class="chart" id="pcc"></div>
+      <div class="scroll"><table id="pctab"></table></div>
+      <ul class="sub" id="pc-notes" style="margin:0;padding-left:18px"></ul>
+    </section>
     <section class="panel" aria-labelledby="h-kr">
       <div class="head"><h2 id="h-kr">한국 수입 가격 · 국내 시세</h2><span class="sub">관세청 수입가격 공개 · 업계 시세</span></div>
       <div class="legend" id="kr-legend"></div>
@@ -864,7 +882,7 @@ function renderV21(D) {
         return ["판단", dec.est < O.ly_dec * 0.6 ? "빠듯" : "보통", "", `국내 어획으로 재고는 다시 쌓이지만, 작년 같은 시기 비율이면 생산의 ${pct(se / sp, 0)}가 수출 → 노르웨이산 공급은 계속 빠듯`]; })(),
     ].map(([k, v, u, n]) => `<div class="m"><div class="k">${k}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
     $("outtab").innerHTML = `<thead><tr><th>월</th><th class="r">월말 재고 (기준)</th><th class="r">범위</th><th class="r">국내 생산</th><th class="r">수입</th><th class="r">수출</th></tr></thead><tbody>` +
-      O.paths.est.map((r, i) => `<tr><td class="mono">${r.period}</td><td class="r mono">${fmt(r.stock)} ${tag("Estimated")}</td><td class="r mono">${fmt(O.paths.lo[i].stock)}–${fmt(O.paths.hi[i].stock)}</td><td class="r mono">${fmt(r.prod)}</td><td class="r mono">${fmt(r.imp)}</td><td class="r mono">${fmt(r.exp)}</td></tr>`).join("") + `</tbody>`;
+      O.paths.est.map((r, i) => `<tr><td class="mono" style="white-space:nowrap">${r.period}</td><td class="r mono">${fmt(r.stock)} ${tag("Estimated")}</td><td class="r mono">${fmt(O.paths.lo[i].stock)}–${fmt(O.paths.hi[i].stock)}</td><td class="r mono">${fmt(r.prod)}</td><td class="r mono">${fmt(r.imp)}</td><td class="r mono">${fmt(r.exp)}</td></tr>`).join("") + `</tbody>`;
     $("out-notes").innerHTML = O.assumptions.map((a) => `<li>${esc(a)}</li>`).join("");
   }
   if (K && K.validation) {
@@ -884,6 +902,54 @@ function renderV21(D) {
     const P = K.pipeline;
     $("pipemini").innerHTML += (`<div class="m"><div class="k">올해 노르웨이산 필레 반입</div><div class="v">${fmt(P.fillet_ytd)}<small> t</small></div><div class="n">${esc(`냉동 고등어 필레(0304.89-5000) · 작년 같은 기간 ${fmt(P.fillet_ytd_ly)} t (${pct(P.fillet_ytd / P.fillet_ytd_ly - 1, 0)})`)}</div></div>`);
   }
+}
+
+function renderChain(D) {
+  const P = D.price_chain;
+  if (!P || !$("pcrow")) return;
+  const C = P.chain, mo = (p) => p ? `${+p.slice(5, 7)}월` : "—";
+  $("pc-sub").textContent = `모두 US$/kg · 각 달 평균 환율 · 선적→도착 약 ${P.lag}개월`;
+  const q = P.quotes.filter((x) => x.origin === "Norway").slice(-4), qd = q.length ? q[q.length - 1].date : null;
+  const ql = q.filter((x) => x.date === qd);
+  const steps = [
+    ["① 노르웨이 원어 위판가", C.fh[1], `${mo(C.fh[0])} · 노르웨이 판매조합 주간 평균`, "Official"],
+    ["② 노르웨이 수출가 (한국행)", C.fob[1], `${mo(C.fob[0])} · 냉동 FOB · 노르웨이 통계청`, "Official"],
+    ["③ 한국 도착가 (노르웨이산)", C.cif[1], `${mo(C.cif[0])} · CIF 0303.54 · 관세청`, "Official"],
+    ["④ 한국 수입가격 공개", C.kip[1], `${mo(C.kip[0])} · 전체 원산지 평균 · 관세청`, "Official"],
+    ["⑤ 국내 시세 (노르웨이)", ql.length ? krw2usd(ql[0].krw) : null, qd ? `${qd.slice(5)} · ${ql.map((x) => `${x.size} ${usd(krw2usd(x.krw))}`).join(" · ")} · 업계 보고` : "입력 없음", "Observed"],
+  ];
+  $("pcrow").innerHTML = steps.map(([k, v, n, s]) => `<div class="st"><div class="k">${k}</div><div class="v">${v == null ? "—" : usd(v)}<small> /kg</small></div><div class="n">${esc(n)} ${tag(s)}</div></div>`).join("");
+  const B1 = P.backtest[1] || P.backtest["1"], B2 = P.backtest[2] || P.backtest["2"], A = P.aligned;
+  $("pcmini").innerHTML = [
+    ...P.outlook.map((o) => [`${mo(o.period)} 한국 도착가 예상`, usd(o.est), "/kg", `범위 ${usd(o.lo)}–${usd(o.hi)} · ${mo(C.cif[0])} 도착가 ${usd(o.base)} + ½×(${mo(o.fob_period)} 수출가 ${usd(o.fob_now)} − ${usd(o.fob_prev)})`, "Estimated"]),
+    ["예상이 맞았나 (2016~)", fmt(B2.mape, 1) + "%", "평균 오차", `2개월 앞: 오차 ${fmt(B2.mape, 1)}% (그대로 둘 때 ${fmt(B2.naive_mape, 1)}%) · 1개월 앞: ${fmt(B1.mape, 1)}% (그대로 ${fmt(B1.naive_mape, 1)}%) → 다음 달은 '지난달과 비슷', 2개월 앞은 수출가가 약간 도움`, null],
+    ["수출가 방향 = 도착가 방향?", fmt(P.direction.hit / P.direction.n * 100, 0) + "%", `${P.direction.hit}/${P.direction.n}`, `2개월 전 수출가가 오르면 도착가도 올랐나 → 동전 던지기에 가까움. 방향 신호로 쓰지 않음`, null],
+  ].map(([k, v, u, n, s]) => `<div class="m"><div class="k">${k} ${s ? tag(s) : ""}</div><div class="v">${v}<small> ${u}</small></div><div class="n">${esc(n)}</div></div>`).join("");
+  const toX = (p) => +p.slice(0, 4) + (+p.slice(5, 7) - 1) / 12, sh = (p, k) => { let y = +p.slice(0, 4), m = +p.slice(5, 7) + k; while (m > 12) { m -= 12; y++; } return `${y}-${String(m).padStart(2, "0")}`; };
+  const S = P.series, pts = (k) => S.map((r) => ({ x: toX(r.period), y: r[k] }));
+  const shifted = S.filter((r) => r.fob != null).map((r) => ({ x: toX(sh(r.period, P.lag)), y: r.fob }));
+  const ol = P.outlook.map((o) => ({ x: toX(o.period), y: o.est, hollow: true }));
+  const vals = S.flatMap((r) => [r.fob, r.cif, r.kip, r.fh]).concat(P.outlook.flatMap((o) => [o.lo, o.hi])).filter((v) => v != null);
+  const y0 = Math.floor(Math.min(...vals) * 2) / 2 - 0.5, y1 = Math.ceil(Math.max(...vals) * 2) / 2 + 0.25;
+  const x0 = toX(S[0].period), x1 = Math.max(toX(S[S.length - 1].period), ...ol.map((d) => d.x)) + 0.1;
+  const xt = []; for (let y = Math.ceil(x0 * 2) / 2; y <= x1; y += 0.5) xt.push(y);
+  chart($("pcc"), { label: "가격 동선", h: 300, x0, x1, y0, y1, yt: niceTicks(y0, y1, 6), yf: (v) => "$" + fmt(v, 1), xt,
+    xf: (v) => `${Math.floor(v + 1e-6)}-${String(Math.round((v - Math.floor(v + 1e-6)) * 12) + 1).padStart(2, "0")}`,
+    tf: (v) => { const y = Math.floor(v + 1e-6), m = Math.round((v - y) * 12) + 1; return `${y}-${String(m).padStart(2, "0")}`; }, vf: (v) => usdkg(v),
+    series: [{ name: "② 노르웨이 수출가 (한국행)", color: css("--total"), r: 2.5, data: pts("fob") },
+             { name: `② 수출가를 ${P.lag}개월 뒤로 민 선`, color: css("--total"), dash: "4 4", dots: false, data: shifted },
+             { name: "③ 한국 도착가 (노르웨이산)", color: css("--catch"), r: 3, data: pts("cif") },
+             { name: "④ 한국 수입가격 공개", color: css("--forecast"), r: 2.5, data: pts("kip") },
+             { name: "① 원어 위판가", color: css("--advice"), r: 4, data: pts("fh") },
+             { name: "③ 도착가 예상", color: css("--catch"), r: 5, dots: true, data: ol }],
+    whiskers: P.outlook.map((o) => ({ x: toX(o.period), lo: o.lo, hi: o.hi, color: css("--catch") })) });
+  legend("pc-legend", [["② 노르웨이 수출가 (한국행 FOB)", css("--total")], [`② 수출가 ${P.lag}개월 뒤로 민 선`, css("--total"), "dash"], ["③ 한국 도착가 (노르웨이산 CIF)", css("--catch")], ["④ 수입가격 공개 (전체 원산지)", css("--forecast")], ["① 원어 위판가", css("--advice")], ["③ 예상 · 범위 (속 빈 점)", css("--catch")]]);
+  const rows = S.slice(-8).reverse(), gap = Object.fromEntries(P.spread.map((g) => [g.period, g.v]));
+  $("pctab").innerHTML = `<thead><tr><th>월</th><th class="r">① 원어 위판가</th><th class="r">② 수출가 (한국행)</th><th class="r">② 수출가 (전 행선지)</th><th class="r">③ 한국 도착가</th><th class="r">④ 수입가격 공개</th><th class="r">③ − ${P.lag}개월 전 ②</th></tr></thead><tbody>` +
+    P.outlook.slice().reverse().map((o) => `<tr><td class="mono" style="white-space:nowrap">${o.period}</td><td></td><td></td><td></td><td class="r mono"><b>${usd(o.est)}</b> ${tag("Estimated")}<div class="src">${usd(o.lo)}–${usd(o.hi)}</div></td><td></td><td></td></tr>`).join("") +
+    rows.map((r) => `<tr><td class="mono" style="white-space:nowrap">${r.period}</td><td class="r mono">${usd(r.fh)}</td><td class="r mono">${usd(r.fob)}</td><td class="r mono">${usd(r.fob_all)}</td><td class="r mono">${usd(r.cif)}</td><td class="r mono">${usd(r.kip)}</td><td class="r mono">${gap[r.period] == null ? "—" : (gap[r.period] >= 0 ? "+" : "") + usd(gap[r.period])}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td colspan="7" class="src">①②③④ ${tag("Official")} 공식 통계를 그 달 평균 환율(Norges Bank)로 환산 · 예상 ${tag("Estimated")} · 마지막 열은 운임이 아님 (최근 14개월 ${usd(C.spread_lo)}~${usd(C.spread_hi)}로 출렁임)</td></tr></tfoot>`;
+  $("pc-notes").innerHTML = P.notes.map((n) => `<li>${esc(n)}</li>`).join("");
 }
 
 function renderDest(D) {
@@ -1234,6 +1300,7 @@ renderSizes(D);
 renderStock(D);
 renderV21(D);
 renderDest(D);
+try { renderChain(D); } catch (e) { console.error(e); }
 fxPill();
 } // end render
 
