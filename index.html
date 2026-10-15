@@ -278,6 +278,10 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="legend" id="pipe-legend"></div>
       <div class="chart" id="pipec"></div>
     </section>
+    <section class="panel" aria-labelledby="h-dest">
+      <div class="head"><h2 id="h-dest">노르웨이 냉동 고등어는 어디로 갔나</h2><span class="sub" id="dest-sub"></span></div>
+      <div class="scroll"><table id="desttab"></table></div>
+    </section>
     <section class="panel" aria-labelledby="h-out">
       <div class="head"><h2 id="h-out">연말(12월말) 재고 전망</h2><span class="sub">시나리오 · 추정</span></div>
       <div class="mini" id="outmini"></div>
@@ -881,6 +885,17 @@ function renderV21(D) {
     $("pipemini").innerHTML += (`<div class="m"><div class="k">올해 노르웨이산 필레 반입</div><div class="v">${fmt(P.fillet_ytd)}<small> t</small></div><div class="n">${esc(`냉동 고등어 필레(0304.89-5000) · 작년 같은 기간 ${fmt(P.fillet_ytd_ly)} t (${pct(P.fillet_ytd / P.fillet_ytd_ly - 1, 0)})`)}</div></div>`);
   }
 }
+
+function renderDest(D) {
+  const X = D.korea_stock && D.korea_stock.destinations;
+  if (!X) return;
+  const ko = { KR: "한국", JP: "일본", CN: "중국", VN: "베트남", US: "미국", TW: "대만", TH: "태국", UA: "우크라이나", TR: "튀르키예", ID: "인도네시아", NL: "네덜란드", NG: "나이지리아", EG: "이집트", PL: "폴란드", PH: "필리핀", GB: "영국", DE: "독일", MY: "말레이시아" };
+  $("dest-sub").textContent = `노르웨이 통계청 · 이번 시즌 ${X.cur_range[0]}~${X.cur_range[1]} · 한국 순위 이번 시즌 ${X.kr_rank_cur || "—"}위 / 지난 시즌 ${X.kr_rank_full || "—"}위`;
+  const per = (r) => r ? `${fmt(r.t)} t <span class="src">${pct(r.share, 0)}</span>` : "—";
+  $("desttab").innerHTML = `<thead><tr><th>행선지</th><th class="r">이번 시즌 (${X.cur_range[0].slice(2)}~${X.cur_range[1].slice(2)})</th><th class="r">작년 같은 기간</th><th class="r">지난 시즌 전체</th><th class="r">이번 시즌 단가</th></tr></thead><tbody>` +
+    X.rows.map((r) => `<tr${r.code === "KR" ? ' style="font-weight:600"' : ""}><td>${esc(ko[r.code] || r.name)}</td><td class="r mono">${per(r.cur)}</td><td class="r mono">${per(r.prev)}</td><td class="r mono">${per(r.full)}</td><td class="r mono">${r.cur && r.cur.nok_kg ? usdkg(nok2usd(r.cur.nok_kg, X.cur_range[1])) : "—"}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td class="src">합계</td><td class="r mono src">${fmt(X.cur_total)} t</td><td class="r mono src">${fmt(X.prev_total)} t</td><td class="r mono src">${fmt(X.full_total)} t</td><td></td></tr></tfoot>`;
+}
 /* ---------------- generic SVG line chart ---------------- */
 function chart(el, o) {
   const W = o.w || 1160, Hh = o.h || 320, m = { l: 64, r: 16, t: 12, b: 28, ...(o.m || {}) };
@@ -1218,6 +1233,7 @@ renderTrading(D);
 renderSizes(D);
 renderStock(D);
 renderV21(D);
+renderDest(D);
 fxPill();
 } // end render
 
