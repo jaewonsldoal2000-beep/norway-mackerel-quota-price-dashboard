@@ -4,22 +4,22 @@
 <style>
 /* Layout: auction-board KPI strip -> one dominant forecast-history chart -> 2x2 working panels -> evidence (history, stock, price, backtest, sources). */
 :root {
-  --bg: #f3f5f6; --surface: #ffffff; --surface-2: #eef1f3; --ink: #0f1a20; --ink-2: #44535b; --muted: #6b7a82; --line: #dce2e5;
-  --forecast: #2a78d6; --forecast-band: rgba(42,120,214,.14); --advice: #eb6834; --actual: #0f1a20; --total: #1baf7a; --catch: #4a3aa7;
-  --good: #1f8a4c; --warn: #b77900; --bad: #c8382f; --bull: #1f8a4c; --bear: #c8382f;
+  --bg: #07111d; --surface: #0c1929; --surface-2: #112237; --ink: #ffffff; --ink-2: #b3c2d2; --muted: #7d90a5; --line: #172a40;
+  --forecast: #5aa9ff; --forecast-band: rgba(90,169,255,.16); --advice: #ff9f43; --actual: #ffffff; --total: #3cc8a4; --catch: #a99cff;
+  --good: #46c08c; --warn: #f2b23b; --bad: #ff6b5e; --bull: #ff9f43; --bear: #5aa9ff; --up: #ff9f43; --calm: #5aa9ff; color-scheme: dark;
   --f-display: "Barlow Condensed", "Arial Narrow", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
   --f-body: "Public Sans", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
   --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --r: 10px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0d1316; --surface: #141c21; --surface-2: #1b252b; --ink: #e7edf0; --ink-2: #b5c2c8; --muted: #8696a0; --line: #26333a;
-  --forecast: #3987e5; --forecast-band: rgba(57,135,229,.20); --advice: #d95926; --actual: #e7edf0; --total: #199e70; --catch: #9085e9;
-  --good: #3fb06c; --warn: #d9a21b; --bad: #e66767; --bull: #3fb06c; --bear: #e66767; color-scheme: dark; } }
+  --bg: #07111d; --surface: #0c1929; --surface-2: #112237; --ink: #ffffff; --ink-2: #b3c2d2; --muted: #7d90a5; --line: #172a40;
+  --forecast: #5aa9ff; --forecast-band: rgba(90,169,255,.16); --advice: #ff9f43; --actual: #ffffff; --total: #3cc8a4; --catch: #a99cff;
+  --good: #46c08c; --warn: #f2b23b; --bad: #ff6b5e; --bull: #ff9f43; --bear: #5aa9ff; --up: #ff9f43; --calm: #5aa9ff; color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg: #0d1316; --surface: #141c21; --surface-2: #1b252b; --ink: #e7edf0; --ink-2: #b5c2c8; --muted: #8696a0; --line: #26333a;
-  --forecast: #3987e5; --forecast-band: rgba(57,135,229,.20); --advice: #d95926; --actual: #e7edf0; --total: #199e70; --catch: #9085e9;
-  --good: #3fb06c; --warn: #d9a21b; --bad: #e66767; --bull: #3fb06c; --bear: #e66767; color-scheme: dark; }
+  --bg: #07111d; --surface: #0c1929; --surface-2: #112237; --ink: #ffffff; --ink-2: #b3c2d2; --muted: #7d90a5; --line: #172a40;
+  --forecast: #5aa9ff; --forecast-band: rgba(90,169,255,.16); --advice: #ff9f43; --actual: #ffffff; --total: #3cc8a4; --catch: #a99cff;
+  --good: #46c08c; --warn: #f2b23b; --bad: #ff6b5e; --bull: #ff9f43; --bear: #5aa9ff; --up: #ff9f43; --calm: #5aa9ff; color-scheme: dark; }
 body { background: var(--bg); color: var(--ink); font: 14px/1.5 var(--f-body); }
 .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 48px; display: grid; gap: 18px; }
 h1, h2, h3 { margin: 0; text-wrap: balance; }
@@ -28,7 +28,7 @@ h2 { font: 600 13px/1.2 var(--f-body); letter-spacing: .08em; text-transform: up
 .num { font-family: var(--f-display); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
 .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 12.5px; }
 a { color: var(--forecast); }
-.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.panel { background: var(--surface); border: 1px solid transparent; border-radius: var(--r); padding: 16px; display: grid; gap: 12px; min-width: 0; align-content: start; }
 .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 
 /* header */
@@ -156,6 +156,84 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .chainrow .v small { font-size: .5em; color: var(--muted); }
 .chainrow .n { font-size: 11.5px; color: var(--muted); }
 @media (max-width: 760px) { .chainrow { grid-template-columns: minmax(0, 1fr); } .chainrow .st { border-right: 0; border-bottom: 1px solid var(--line); } .chainrow .st:not(:last-child)::after { content: "↓"; right: auto; left: 14px; top: auto; bottom: -8px; } }
+
+/* ---------- first screen: summary -> prices -> risks -> flow ---------- */
+.ov { display: grid; gap: 28px; }
+.ov-k { font: 600 11.5px/1 var(--f-body); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ov-sum { display: grid; gap: 14px; padding: 26px 26px 22px; border-radius: 14px; background: radial-gradient(120% 140% at 0% 0%, #13304f 0%, var(--surface) 55%); }
+.ov-line { margin: 0; font: 600 clamp(21px, 2.6vw, 30px)/1.35 var(--f-body); color: var(--ink); max-width: 46ch; text-wrap: balance; letter-spacing: -.005em; }
+.ov-detail { margin: -4px 0 0; font-size: 14.5px; line-height: 1.55; color: var(--ink-2); max-width: 90ch; }
+.ov-tags { display: flex; gap: 8px; flex-wrap: wrap; }
+.ov-tag { display: inline-flex; gap: 8px; align-items: baseline; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.05); font-size: 13px; color: var(--ink-2); }
+.ov-tag b { font-weight: 700; color: var(--ink); }
+.ov-tag.warn b { color: var(--up); } .ov-tag.calm b { color: var(--calm); }
+.ov-sig { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: 4px; border-top: 1px solid rgba(255,255,255,.08); }
+.ov-sig > div { padding: 14px 16px 0 0; display: grid; gap: 4px; }
+.ov-sig .t { font-size: 12px; color: var(--muted); }
+.ov-sig .l { font: 700 19px/1.2 var(--f-body); color: var(--ink); }
+.ov-sig .l.down { color: var(--calm); } .ov-sig .l.wait { color: var(--ink); } .ov-sig .l.up { color: var(--up); }
+.ov-sig .s { font-size: 12.5px; color: var(--ink-2); }
+.ov-sec { display: grid; gap: 12px; }
+.ov-sec > .hd { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ov-sec > .hd .ov-k { font-size: 12px; }
+.qb { display: grid; background: var(--surface); border-radius: 14px; overflow: hidden; }
+.qb-row { display: grid; grid-template-columns: minmax(170px, 1.5fr) 118px 74px 74px minmax(200px, 2.1fr) minmax(150px, 1.3fr); gap: 16px; align-items: center; padding: 14px 20px; border-top: 1px solid var(--line); }
+.qb-row:first-child { border-top: 0; }
+.qb-row.qh { padding-block: 10px; background: rgba(255,255,255,.02); }
+.qb-row.qh > div { font: 600 11px/1.2 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.qb .nm { font: 600 14.5px/1.3 var(--f-body); color: var(--ink); }
+.qb .nm small { display: block; font: 400 12px/1.4 var(--f-body); color: var(--muted); margin-top: 2px; }
+.qb .px { font: 700 30px/1 var(--f-display); font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+.qb .px small { font-size: .45em; color: var(--muted); font-weight: 600; margin-left: 2px; }
+.qb .px .pd { display: block; font: 400 11.5px/1.4 var(--f-mono); color: var(--muted); margin-top: 4px; }
+.qb .ch { font: 600 13.5px/1 var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.qb .ch.up { color: var(--up); } .qb .ch.down { color: var(--calm); } .qb .ch.flat { color: var(--muted); }
+.qb .ch small { display: none; }
+.qb .pos { display: grid; gap: 4px; min-width: 0; }
+.qb .pos svg { width: 100%; height: 38px; display: block; overflow: visible; }
+.qb .pos .pt { font-size: 12px; color: var(--ink-2); }
+.qb .pos .pt b { color: var(--ink); }
+.qb .pos .mm { font: 400 11px/1.3 var(--f-mono); color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.qb .fc { font-size: 12.5px; color: var(--ink-2); display: grid; gap: 3px; }
+.qb .fc b { font: 700 17px/1.1 var(--f-display); color: var(--ink); letter-spacing: .01em; }
+.qb .na { font-size: 12px; color: var(--muted); }
+.rk { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.rk > div { background: var(--surface); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; position: relative; }
+.rk > div::before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; border-radius: 0 3px 3px 0; background: var(--muted); }
+.rk > div.high::before { background: var(--up); } .rk > div.low::before { background: var(--calm); }
+.rk .k { font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.rk .v { font: 700 30px/1 var(--f-display); font-variant-numeric: tabular-nums; color: var(--ink); }
+.rk .v small { font-size: .45em; color: var(--muted); font-weight: 600; margin-left: 3px; }
+.rk .vd { font: 700 14px/1.3 var(--f-body); }
+.rk .high .vd { color: var(--up); } .rk .low .vd { color: var(--calm); } .rk .mid .vd { color: var(--ink); }
+.rk .c { font: 500 12.5px var(--f-body); color: var(--ink-2); }
+.rk .c b { font: 600 12.5px var(--f-mono); color: var(--ink); }
+.rk .n { font-size: 12px; color: var(--muted); line-height: 1.45; }
+.fl { display: grid; gap: 10px; }
+.fl-lane { display: grid; grid-template-columns: 110px repeat(3, minmax(0, 1fr)); gap: 0; align-items: stretch; background: var(--surface); border-radius: 14px; overflow: hidden; }
+.fl-lane .lt { padding: 16px 18px; font: 700 14px/1.3 var(--f-body); color: var(--ink); background: rgba(255,255,255,.03); display: flex; align-items: center; }
+.fl-st { padding: 14px 26px 14px 20px; display: grid; gap: 4px; align-content: start; position: relative; border-left: 1px solid var(--line); }
+.fl-st:not(:last-child)::after { content: ""; position: absolute; right: -7px; top: 50%; width: 12px; height: 12px; border-top: 1.5px solid var(--muted); border-right: 1.5px solid var(--muted); transform: translateY(-50%) rotate(45deg); background: var(--surface); z-index: 1; }
+.fl-st .k { font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.fl-st .h { font: 700 19px/1.2 var(--f-body); color: var(--ink); display: flex; gap: 6px; align-items: baseline; }
+.fl-st.warn .h { color: var(--up); } .fl-st.calm .h { color: var(--calm); }
+.fl-st .b { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+.ov-note { font-size: 12px; color: var(--muted); margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+.detail-hd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 8px; }
+@media (max-width: 980px) {
+  .qb-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; }
+  .qb-row.qh { display: none; }
+  .qb .px { text-align: right; }
+  .qb .chs { grid-column: 1 / -1; display: flex; gap: 14px; }
+  .qb .ch small { display: inline; font: 400 11.5px var(--f-body); color: var(--muted); margin-right: 4px; }
+  .qb .pos, .qb .fc { grid-column: 1 / -1; }
+  .rk { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fl-lane { grid-template-columns: minmax(0, 1fr); }
+  .fl-lane .lt { padding-block: 10px; }
+  .fl-st { border-left: 0; border-top: 1px solid var(--line); padding: 12px 18px 16px; }
+  .fl-st:not(:last-child)::after { right: auto; left: 24px; top: auto; bottom: -7px; transform: rotate(135deg); }
+}
+@media (max-width: 620px) { .ov-sig { grid-template-columns: minmax(0, 1fr); } .ov-sig > div { padding-right: 0; } .rk { grid-template-columns: minmax(0, 1fr); } .ov-sum { padding: 20px 18px; } }
 @media (max-width: 620px) { .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* sizes */
 .bins { display: grid; gap: 4px; }
@@ -242,6 +320,30 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="err" id="lockerr" role="alert"></div>
     </form>
   </section>
+
+  <div class="ov" id="ov" hidden>
+    <section class="ov-sum" aria-labelledby="ov-h">
+      <div class="ov-k" id="ov-h">시장 상황</div>
+      <p class="ov-line" id="ov-line"></p>
+      <p class="ov-detail" id="ov-detail"></p>
+      <div class="ov-tags" id="ov-tags"></div>
+      <div class="ov-sig" id="ov-sig"></div>
+    </section>
+    <section class="ov-sec" aria-labelledby="ov-ph">
+      <div class="hd"><div class="ov-k" id="ov-ph">현재 가격 · US$/kg</div><span class="sub" id="ov-psub"></span></div>
+      <div class="qb" id="ov-qb"></div>
+    </section>
+    <section class="ov-sec" aria-labelledby="ov-rh">
+      <div class="hd"><div class="ov-k" id="ov-rh">공급 · 쿼터 · 재고 위험</div><span class="sub">주황 = 구매에 불리 · 파랑 = 유리</span></div>
+      <div class="rk" id="ov-rk"></div>
+    </section>
+    <section class="ov-sec" aria-labelledby="ov-fh">
+      <div class="hd"><div class="ov-k" id="ov-fh">공급 → 가격 → 구매로 이어지는 흐름</div></div>
+      <div class="fl" id="ov-fl"></div>
+      <details><summary class="sub" style="cursor:pointer">계산 방식</summary><ul class="ov-note" id="ov-method"></ul></details>
+    </section>
+    <div class="detail-hd"><div class="ov-k">상세 분석 · 출처 · 원자료</div></div>
+  </div>
 
   <nav class="tabs" role="tablist" aria-label="화면">
     <button type="button" role="tab" id="t-buy" data-tab="buy" aria-controls="tab-buy">구매 판단</button>
@@ -904,6 +1006,70 @@ function renderV21(D) {
   }
 }
 
+function renderOverview(D) {
+  const O = D.overview;
+  if (!O || !$("ov")) return;
+  $("ov").hidden = false;
+  const sp = (v, d = 0) => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "±") + fmt(Math.abs(v) * 100, d) + "%";
+  const dir = (v, th = 0.005) => v == null ? "flat" : v > th ? "up" : v < -th ? "down" : "flat";
+  const arrow = (d) => d === "up" ? "▲" : d === "down" ? "▼" : d === "flat" ? "■" : "";
+  const S = O.summary;
+  $("ov-line").textContent = S.head || S.line;
+  $("ov-detail").textContent = S.head ? S.line + "." : "";
+  $("ov-tags").innerHTML = S.tags.map((x) => `<span class="ov-tag ${x.tone}">${esc(x.k)} <b>${esc(x.v)}</b></span>`).join("") +
+    `<span class="ov-tag">기준 <b class="mono" style="font-weight:500">${kst(D.generated).slice(0, 16)} KST</b></span>`;
+  $("ov-sig").innerHTML = S.signals.map((x) => `<div><div class="t">${esc(x.title)}</div><div class="l ${x.level === "down" ? "down" : x.level === "up" ? "up" : "wait"}">${esc(x.label)}</div><div class="s">${esc(x.short)}</div></div>`).join("");
+  // ---- price board ----
+  const ym = (p) => p ? p.slice(2, 4) + "." + p.slice(5, 7) : "";
+  const spark = (c) => {
+    const pts = c.spark, n = pts.length, lo = c.min5.value, hi = c.max5.value, W = 240, H = 38, pad = 3;
+    const x = (i) => pad + i / (n - 1) * (W - 2 * pad), y = (v) => H - pad - (v - lo) / (hi - lo || 1) * (H - 2 * pad);
+    const d = pts.map((q, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(q.v).toFixed(1)}`).join("");
+    const cur = pts[n - 1];
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="${pad}" x2="${W - pad}" y1="${y(c.avg5)}" y2="${y(c.avg5)}" stroke="${css("--muted")}" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/>
+      <path d="${d}" fill="none" stroke="${css("--ink-2")}" stroke-width="1.4" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+      <circle cx="${x(n - 1)}" cy="${y(cur.v)}" r="3.2" fill="${css("--ink")}"/></svg>`;
+  };
+  const band = (p) => p >= 0.95 ? "5년 최고권" : p >= 0.75 ? "5년 상위권" : p <= 0.05 ? "5년 최저권" : p <= 0.25 ? "5년 하위권" : "5년 중간";
+  const head = `<div class="qb-row qh"><div>품목</div><div>현재</div><div>전월</div><div>전년</div><div>최근 5년 추이 · 위치</div><div>전망 범위</div></div>`;
+  $("ov-qb").innerHTML = head + O.prices.map((p) => {
+    const nm = `<div class="nm">${esc(p.name)} ${tag(p.status)}<small>${esc(p.sub)} · ${esc(p.src)}</small></div>`;
+    if (p.ctx) {
+      const c = p.ctx, f = p.forecast;
+      const fc = !f ? `<div class="na">공식 전망 없음</div>` : f.kind === "usd"
+        ? `<div class="fc"><span>${esc(f.label)} ${tag("Estimated")}</span><b>${usd(f.value)}</b><span class="mono">${usd(f.lo)} – ${usd(f.hi)}</span></div>`
+        : `<div class="fc"><span>${esc(f.label)} ${tag("Estimated")}</span><b>${sp(f.chg)}</b><span class="mono">${sp(f.lo)} ~ ${sp(f.hi)}</span></div>`;
+      return `<div class="qb-row">${nm}
+        <div class="px">${usd(c.value)}<small>/kg</small><span class="pd">${c.period} 월평균</span></div>
+        <div class="chs" style="display:contents"><div class="ch ${dir(c.mom)}"><small>전월</small>${arrow(dir(c.mom))} ${sp(c.mom, 1)}</div><div class="ch ${dir(c.yoy)}"><small>전년</small>${arrow(dir(c.yoy))} ${sp(c.yoy, 0)}</div></div>
+        <div class="pos">${spark(c)}<div class="pt"><b>${band(c.pctile)}</b> · 백분위 ${fmt(c.pctile * 100, 0)} · 5년 평균 ${usd(c.avg5)} 대비 ${sp(c.vs_avg5, 0)}</div>
+          <div class="mm"><span>최저 ${usd(c.min5.value)} (${ym(c.min5.period)})</span><span>최고 ${usd(c.max5.value)} (${ym(c.max5.period)})</span></div></div>
+        ${fc}</div>`;
+    }
+    const s = p.short;
+    const v = s.value != null ? s.value : krw2usd(s.krw);
+    const sub = s.value != null ? `${s.period.slice(5)} 주 · ${s.fx_date.slice(5)} 환율` : `${s.period.slice(5)} · ${fmt(s.krw)}원/kg`;
+    const sizes = p.sizes ? p.sizes.map((z) => `${z.size} ${usd(krw2usd(z.krw))}`).join(" · ") : "";
+    return `<div class="qb-row">${nm}
+      <div class="px">${usd(v)}<small>/kg</small><span class="pd">${esc(sub)}</span></div>
+      <div class="chs" style="display:contents"><div class="ch ${dir(s.wow)}"><small>전주</small>${s.wow == null ? "—" : arrow(dir(s.wow)) + " " + sp(s.wow, 1)}</div><div class="ch ${dir(s.yoy)}"><small>전년</small>${s.yoy == null ? "—" : arrow(dir(s.yoy)) + " " + sp(s.yoy, 0)}</div></div>
+      <div class="pos">${p.vs_cif ? `<div class="pt"><b>한국 도착가보다 ${usd(v - p.vs_cif.cif)} (${sp(v / p.vs_cif.cif - 1, 0)})</b> · ${p.vs_cif.period} 도착가 ${usd(p.vs_cif.cif)} 대비 · 관세·보관·유통 마진 포함</div>` : ""}<div class="na">${esc(s.note)}${s.wow != null ? " · 전월 대신 전주 대비" : ""}${sizes ? " · " + esc(sizes) : ""}</div></div>
+      <div class="na">공식 전망 없음</div></div>`;
+  }).join("");
+  $("ov-psub").textContent = "▲▼ 주황 = 상승(매입 불리) · 파랑 = 하락 · 점선 = 5년 평균 · 흰 점 = 현재";
+  // ---- risks ----
+  $("ov-rk").innerHTML = O.risks.map((r) => {
+    const v = r.v == null ? "—" : r.v < 0 && r.unit.includes("남음") ? `소진<small>${fmt(r.v)} t</small>` : `${fmt(r.v)}<small>${esc(r.unit)}</small>`;
+    return `<div class="${r.level}"><div class="k">${esc(r.k)} ${tag(r.status)}</div><div class="v">${v}</div><div class="vd">${esc(r.verdict)}</div>
+      ${r.chg != null ? `<div class="c">${esc(r.chg_label)} <b>${sp(r.chg, 0)}</b></div>` : ""}<div class="n">${esc(r.note)}</div></div>`;
+  }).join("");
+  // ---- flow ----
+  $("ov-fl").innerHTML = O.flows.map((f) => `<div class="fl-lane"><div class="lt">${esc(f.title)}</div>` +
+    f.steps.map((s) => `<div class="fl-st ${s.tone}"><div class="k">${esc(s.k)}</div><div class="h">${s.dir === "info" ? "" : `<span aria-hidden="true">${arrow(s.dir)}</span>`}${esc(s.head)}</div><div class="b">${esc(s.body)}${s.status ? " " + s.status.split(" · ").map(tag).join(" ") : ""}</div></div>`).join("") + `</div>`).join("");
+  $("ov-method").innerHTML = O.method.map((m) => `<li>${esc(m)}</li>`).join("");
+}
+
 function renderChain(D) {
   const P = D.price_chain;
   if (!P || !$("pcrow")) return;
@@ -1301,6 +1467,7 @@ renderStock(D);
 renderV21(D);
 renderDest(D);
 try { renderChain(D); } catch (e) { console.error(e); }
+try { renderOverview(D); } catch (e) { console.error(e); }
 fxPill();
 } // end render
 
