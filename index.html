@@ -233,7 +233,23 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
   .fl-st { border-left: 0; border-top: 1px solid var(--line); padding: 12px 18px 16px; }
   .fl-st:not(:last-child)::after { right: auto; left: 24px; top: auto; bottom: -7px; transform: rotate(135deg); }
 }
-@media (max-width: 620px) { .ov-sig { grid-template-columns: minmax(0, 1fr); } .ov-sig > div { padding-right: 0; } .rk { grid-template-columns: minmax(0, 1fr); } .ov-sum { padding: 20px 18px; } }
+#ov-psub .sm { display: none; }
+@media (max-width: 620px) {
+  .ov { gap: 22px; }
+  .ov-sum { padding: 18px 16px 14px; gap: 10px; }
+  .ov-line { font-size: 21px; line-height: 1.32; }
+  .ov-detail { font-size: 13.5px; line-height: 1.5; }
+  .ov-tags { gap: 6px; } .ov-tag { padding: 4px 10px; font-size: 12.5px; }
+  .ov-sig { grid-template-columns: minmax(0, 1fr); margin-top: 0; }
+  .ov-sig > div { padding: 9px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-top: 1px solid rgba(255,255,255,.06); }
+  .ov-sig > div:first-child { border-top: 0; }
+  .ov-sig .l { font-size: 15.5px; text-align: right; } .ov-sig .s { display: none; }
+  #ov-psub .lg { display: none; } #ov-psub .sm { display: inline; }
+  .qb-row { padding: 12px 16px; }
+  .qb .px { font-size: 27px; }
+  .qb .pos svg { height: 30px; }
+  .rk { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 620px) { .mini { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* sizes */
 .bins { display: grid; gap: 4px; }
@@ -1053,11 +1069,11 @@ function renderOverview(D) {
     const sizes = p.sizes ? p.sizes.map((z) => `${z.size} ${usd(krw2usd(z.krw))}`).join(" · ") : "";
     return `<div class="qb-row">${nm}
       <div class="px">${usd(v)}<small>/kg</small><span class="pd">${esc(sub)}</span></div>
-      <div class="chs" style="display:contents"><div class="ch ${dir(s.wow)}"><small>전주</small>${s.wow == null ? "—" : arrow(dir(s.wow)) + " " + sp(s.wow, 1)}</div><div class="ch ${dir(s.yoy)}"><small>전년</small>${s.yoy == null ? "—" : arrow(dir(s.yoy)) + " " + sp(s.yoy, 0)}</div></div>
+      <div class="chs" style="display:contents"><div class="ch ${dir(s.wow)}"><small>${s.value != null ? "전주" : "직전 시세"}</small>${s.wow == null ? "—" : arrow(dir(s.wow)) + " " + sp(s.wow, 1)}</div><div class="ch ${dir(s.yoy)}"><small>전년</small>${s.yoy == null ? "—" : arrow(dir(s.yoy)) + " " + sp(s.yoy, 0)}</div></div>
       <div class="pos">${p.vs_cif ? `<div class="pt"><b>한국 도착가보다 ${usd(v - p.vs_cif.cif)} (${sp(v / p.vs_cif.cif - 1, 0)})</b> · ${p.vs_cif.period} 도착가 ${usd(p.vs_cif.cif)} 대비 · 관세·보관·유통 마진 포함</div>` : ""}<div class="na">${esc(s.note)}${s.wow != null ? " · 전월 대신 전주 대비" : ""}${sizes ? " · " + esc(sizes) : ""}</div></div>
       <div class="na">공식 전망 없음</div></div>`;
   }).join("");
-  $("ov-psub").textContent = "▲▼ 주황 = 상승(매입 불리) · 파랑 = 하락 · 점선 = 5년 평균 · 흰 점 = 현재";
+  $("ov-psub").innerHTML = `<span class="lg">▲▼ 주황 = 상승(매입 불리) · 파랑 = 하락 · 점선 = 5년 평균 · 흰 점 = 현재</span><span class="sm">주황 상승 · 파랑 하락 · 점선 5년 평균</span>`;
   // ---- risks ----
   $("ov-rk").innerHTML = O.risks.map((r) => {
     const v = r.v == null ? "—" : r.v < 0 && r.unit.includes("남음") ? `소진<small>${fmt(r.v)} t</small>` : `${fmt(r.v)}<small>${esc(r.unit)}</small>`;
