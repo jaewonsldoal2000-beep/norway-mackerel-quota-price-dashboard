@@ -233,6 +233,11 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
   .fl-st { border-left: 0; border-top: 1px solid var(--line); padding: 12px 18px 16px; }
   .fl-st:not(:last-child)::after { right: auto; left: 24px; top: auto; bottom: -7px; transform: rotate(135deg); }
 }
+.eup { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.eup > div { background: var(--surface); border-radius: 14px; padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.eup .h { font: 700 16.5px/1.3 var(--f-body); color: var(--ink); }
+.eup .calm .h, .eup > div.calm .h { color: var(--calm); } .eup > div.warn .h { color: var(--up); }
+.eup .b { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
 #ov-psub .sm { display: none; }
 @media (max-width: 620px) {
   .ov { gap: 22px; }
@@ -358,6 +363,10 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
       <div class="fl" id="ov-fl"></div>
       <details><summary class="sub" style="cursor:pointer">계산 방식</summary><ul class="ov-note" id="ov-method"></ul></details>
     </section>
+    <section class="ov-sec" aria-labelledby="ov-eh" id="ov-eu" hidden>
+      <div class="hd"><div class="ov-k" id="ov-eh">EU산 판매 포인트</div><button type="button" class="linkbtn" data-goto="eu">EU산 상세 →</button></div>
+      <div class="eup" id="ov-eup"></div>
+    </section>
     <div class="detail-hd"><div class="ov-k">상세 분석 · 출처 · 원자료</div></div>
   </div>
 
@@ -365,6 +374,7 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
     <button type="button" role="tab" id="t-buy" data-tab="buy" aria-controls="tab-buy">구매 판단</button>
     <button type="button" role="tab" id="t-stock" data-tab="stock" aria-controls="tab-stock">한국 재고</button>
     <button type="button" role="tab" id="t-trade" data-tab="trade" aria-controls="tab-trade">매매 타이밍</button>
+    <button type="button" role="tab" id="t-eu" data-tab="eu" aria-controls="tab-eu">EU산</button>
     <button type="button" role="tab" id="t-season" data-tab="season" aria-controls="tab-season">시즌 · 가격</button>
     <button type="button" role="tab" id="t-forecast" data-tab="forecast" aria-controls="tab-forecast">2027 전망</button>
     <button type="button" role="tab" id="t-evidence" data-tab="evidence" aria-controls="tab-evidence">근거</button>
@@ -468,6 +478,26 @@ body.locked .wrap > :not(header):not(#lock) { display: none !important; }
         <label>목표 마진 % <input id="c-tgt" type="number" inputmode="decimal" min="0" step="1" value="10"></label>
         <div class="calcout" id="c-out" aria-live="polite"></div>
       </form>
+    </section>
+  </div>
+
+  <div class="tab" id="tab-eu" role="tabpanel" aria-labelledby="t-eu" hidden>
+    <section class="panel" aria-labelledby="h-eu1">
+      <div class="head"><h2 id="h-eu1">한국 수입 원산지 (냉동 고등어 HS 0303.54)</h2><span class="sub" id="eu-sub"></span></div>
+      <div class="scroll"><table id="eugrp"></table></div>
+      <div class="scroll"><table id="euctry"></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-eu2">
+      <div class="head"><h2 id="h-eu2">한국 도착가 · EU vs 노르웨이 vs 영국 (월별, US$/kg)</h2><span class="sub" id="eu-csub"></span></div>
+      <div class="legend" id="eu-legend"></div>
+      <div class="chart" id="euc"></div>
+      <div class="scroll"><table id="euq"></table></div>
+    </section>
+    <section class="panel" aria-labelledby="h-eu3">
+      <div class="head"><h2 id="h-eu3">EU 공급 팩트 (출처별)</h2><span class="sub">Official 공식 · Observed 보도·시세</span></div>
+      <div class="scroll"><table id="eufacts"></table></div>
+      <div class="sub"><b>판매 시 주의</b></div><ul class="sub" id="eu-caution" style="margin:0;padding-left:18px"></ul>
+      <ul class="sub" id="eu-method" style="margin:0;padding-left:18px"></ul>
     </section>
   </div>
 
@@ -648,7 +678,7 @@ function fxPill() {
 setInterval(fetchFx, 30 * 60 * 1000);
 
 /* ---------------- tabs ---------------- */
-const TABS = ["buy", "stock", "trade", "season", "forecast", "evidence"];
+const TABS = ["buy", "stock", "trade", "eu", "season", "forecast", "evidence"];
 function showTab(id) {
   if (!TABS.includes(id)) id = "buy";
   TABS.forEach((t) => { $("tab-" + t).hidden = t !== id; $("t-" + t).setAttribute("aria-selected", String(t === id)); });
@@ -1020,6 +1050,41 @@ function renderV21(D) {
     const P = K.pipeline;
     $("pipemini").innerHTML += (`<div class="m"><div class="k">올해 노르웨이산 필레 반입</div><div class="v">${fmt(P.fillet_ytd)}<small> t</small></div><div class="n">${esc(`냉동 고등어 필레(0304.89-5000) · 작년 같은 기간 ${fmt(P.fillet_ytd_ly)} t (${pct(P.fillet_ytd / P.fillet_ytd_ly - 1, 0)})`)}</div></div>`);
   }
+}
+
+function renderEU(D) {
+  const E = D.eu;
+  if (!E) return;
+  if ($("ov-eu")) {
+    $("ov-eu").hidden = false;
+    $("ov-eup").innerHTML = E.points.map((p) => `<div class="${p.tone || ""}"><div class="h">${esc(p.h)}</div><div class="b">${esc(p.b)} ${tag(p.status)}</div></div>`).join("");
+  }
+  if (!$("eugrp")) return;
+  const sp = (v, d = 0) => v == null ? "—" : (v > 0 ? "+" : v < 0 ? "−" : "±") + fmt(Math.abs(v) * 100, d) + "%";
+  $("eu-sub").textContent = `관세청 · ${E.period} · 작년 같은 기간과 비교`;
+  $("eugrp").innerHTML = `<thead><tr><th>원산지 구분</th><th class="r">${E.year}년 1–${E.month}월</th><th class="r">점유</th><th class="r">작년 같은 기간</th><th class="r">증감</th><th class="r">도착가 $/kg</th><th class="r">작년</th></tr></thead><tbody>` +
+    E.groups.map((g) => `<tr${g.key === "EU" ? ' style="font-weight:600"' : ""}><td>${esc(g.name)}</td><td class="r mono">${fmt(g.t)} t</td><td class="r mono">${g.share == null ? "—" : pct(g.share, 1)}</td><td class="r mono">${fmt(g.t_ly)} t</td><td class="r mono">${sp(g.chg)}</td><td class="r mono">${usd(g.usd)}</td><td class="r mono">${usd(g.usd_ly)}</td></tr>`).join("") + `</tbody>`;
+  $("euctry").innerHTML = `<thead><tr><th>나라 (대서양 고등어)</th><th class="r">${E.year}년 1–${E.month}월</th><th class="r">작년 같은 기간</th><th class="r">도착가 $/kg</th><th class="r">작년</th></tr></thead><tbody>` +
+    E.countries.map((c) => `<tr><td>${esc(c.name)} ${c.eu ? '<span class="tag t-Official">EU</span>' : ""}</td><td class="r mono">${fmt(c.t)} t</td><td class="r mono">${fmt(c.t_ly)} t</td><td class="r mono">${usd(c.usd)}</td><td class="r mono">${usd(c.usd_ly)}</td></tr>`).join("") + `</tbody>`;
+  const M = E.monthly, toX = (p) => +p.slice(0, 4) + (+p.slice(5, 7) - 1) / 12;
+  const vals = M.flatMap((r) => [r.NO_usd, r.EU_usd, r.GB_usd]).filter((v) => v != null);
+  const y0 = Math.floor(Math.min(...vals) * 2) / 2 - 0.25, y1 = Math.ceil(Math.max(...vals) * 2) / 2 + 0.25;
+  const x0 = toX(M[0].period), x1 = toX(M[M.length - 1].period) + 0.05, xt = []; for (let y = Math.ceil(x0 * 4) / 4; y <= x1; y += 0.25) xt.push(y);
+  const tf = (v) => { const y = Math.floor(v + 1e-6), m = Math.round((v - y) * 12) + 1; return `${y}-${String(m).padStart(2, "0")}`; };
+  chart($("euc"), { label: "EU vs 노르웨이 도착가", h: 280, x0, x1, y0, y1, yt: niceTicks(y0, y1, 6), yf: (v) => "$" + fmt(v, 1), xt, xf: tf, tf, vf: (v) => usdkg(v),
+    series: [{ name: "노르웨이", color: css("--ink-2"), r: 3, data: M.map((r) => ({ x: toX(r.period), y: r.NO_usd })) },
+             { name: "EU (대서양)", color: css("--calm"), r: 4, data: M.map((r) => ({ x: toX(r.period), y: r.EU_usd })) },
+             { name: "영국", color: css("--catch"), r: 3, data: M.map((r) => ({ x: toX(r.period), y: r.GB_usd })) }],
+    extraTip: (xv) => { const r = M.find((q) => Math.abs(toX(q.period) - xv) < 1e-6); return r ? `<div class="row"><span>반입량 NO · EU · UK</span><b class="mono">${fmt(r.NO_t)} · ${fmt(r.EU_t)} · ${fmt(r.GB_t)} t</b></div>` : ""; } });
+  legend("eu-legend", [["노르웨이", css("--ink-2")], ["EU (대서양 고등어)", css("--calm")], ["영국", css("--catch")]]);
+  $("eu-csub").textContent = `EU가 노르웨이보다 싼 달 ${E.cheaper.n}/${E.cheaper.of}개월 · 그 달 20 t 이상만 표시`;
+  $("euq").innerHTML = `<thead><tr><th>국내 시세 (${E.quotes[0] ? esc(E.quotes[0].date) : ""})</th><th>규격</th><th class="r">원/kg</th><th class="r">노르웨이 같은 규격</th><th class="r">차이</th></tr></thead><tbody>` +
+    E.quotes.map((q) => `<tr><td>${esc({ Netherlands: "네덜란드 (EU)", UK: "영국" }[q.origin] || q.origin)}</td><td class="mono">${esc(q.size)}</td><td class="r mono">${fmt(q.krw)} <span class="src">${usd(krw2usd(q.krw))}</span></td><td class="r mono">${q.no_krw ? fmt(q.no_krw) : "—"}</td><td class="r mono">${sp(q.gap, 1)}</td></tr>`).join("") +
+    `</tbody><tfoot><tr><td colspan="5" class="src">업계 시세 보고 (수기 입력) ${tag("Observed")}${E.notes.length ? " · " + E.notes.map((n) => esc(n.note)).join(" · ") : ""}</td></tr></tfoot>`;
+  $("eufacts").innerHTML = `<thead><tr><th>팩트</th><th class="r">값</th><th>상태</th><th>출처</th></tr></thead><tbody>` +
+    E.facts.map((f) => `<tr><td>${esc(f.fact)}<div class="src">${esc(f.note)}</div></td><td class="r mono">${f.value ? fmt(+f.value, Number.isInteger(+f.value) ? 0 : 2) + " " + esc(f.unit) : "—"}</td><td>${tag(f.status)}</td><td class="src"><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.source)}</a><div class="mono">${esc(f.published)}</div></td></tr>`).join("") + `</tbody>`;
+  $("eu-caution").innerHTML = E.caution.map((c) => `<li>${esc(c)}</li>`).join("");
+  $("eu-method").innerHTML = E.method.map((c) => `<li>${esc(c)}</li>`).join("");
 }
 
 function renderOverview(D) {
@@ -1484,6 +1549,7 @@ renderV21(D);
 renderDest(D);
 try { renderChain(D); } catch (e) { console.error(e); }
 try { renderOverview(D); } catch (e) { console.error(e); }
+try { renderEU(D); } catch (e) { console.error(e); }
 fxPill();
 } // end render
 
